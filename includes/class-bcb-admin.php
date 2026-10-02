@@ -1,0 +1,659 @@
+<?php
+/**
+ * Admin pages: dashboard + settings (API keys, profit wallets, options).
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class BCB_Admin {
+
+	public static function register_menu() {
+		add_menu_page(
+			__( 'Crypto Bots', 'bionic-crypto-bots' ),
+			__( 'Crypto Bots', 'bionic-crypto-bots' ),
+			'manage_options',
+			'bcb',
+			array( __CLASS__, 'render_dashboard' ),
+			'dashicons-chart-area',
+			58
+		);
+		add_submenu_page(
+			'bcb',
+			__( 'Dashboard', 'bionic-crypto-bots' ),
+			__( 'Dashboard', 'bionic-crypto-bots' ),
+			'manage_options',
+			'bcb',
+			array( __CLASS__, 'render_dashboard' )
+		);
+		add_submenu_page(
+			'bcb',
+			__( 'Settings', 'bionic-crypto-bots' ),
+			__( 'Settings', 'bionic-crypto-bots' ),
+			'manage_options',
+			'bcb-settings',
+			array( __CLASS__, 'render_settings' )
+		);
+	}
+
+	public static function enqueue_assets( $hook ) {
+		if ( false === strpos( $hook, 'bcb' ) ) {
+			return;
+		}
+		wp_enqueue_style( 'bcb-admin', BCB_URL . 'assets/css/bcb-admin.css', array(), BCB_VERSION );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Actions                                                             */
+	/* ------------------------------------------------------------------ */
+
+	public static function handle_actions() {
+		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$page = isset( $_POST['bcb_page'] ) ? sanitize_key( $_POST['bcb_page'] ) : '';
+
+		if ( 'keys' === $page ) {
+			self::handle_keys_actions();
+		} elseif ( 'wallets' === $page ) {
+			self::handle_wallets_actions();
+		} elseif ( 'options' === $page ) {
+			self::handle_options_actions();
+		} elseif ( 'bot' === $page ) {
+			self::handle_bot_actions();
+		}
+	}
+
+	/** Queue a pause/resume command for the bot (picked up on its next tick). */
+	private static function handle_bot_actions() {
+		check_admin_referer( 'bcb_bot' );
+		if ( isset( $_POST['bcb_bot_pause'] ) ) {
+			update_option( 'bcb_bot_command', 'pause', false );
+		} elseif ( isset( $_POST['bcb_bot_resume'] ) ) {
+			update_option( 'bcb_bot_command', 'resume', false );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=bcb' ) );
+		exit;
+	}
+
+	private static function handle_keys_actions() {
+		check_admin_referer( 'bcb_keys' );
+
+		if ( isset( $_POST['bcb_generate_key'] ) ) {
+			$label  = sanitize_text_field( wp_unslash( $_POST['bcb_key_label'] ?? '' ) );
+			$label  = '' !== $label ? $label : 'bot-' . gmdate( 'Ymd-Hi' );
+			$plain  = BCB_Helpers::generate_api_key();
+			$keys   = BCB_Helpers::get_api_keys();
+			$keys[] = array(
+				'hash'    => BCB_Helpers::hash_key( $plain ),
+				'label'   => $label,
+				'created' => BCB_Helpers::now(),
+			);
+			update_option( 'bcb_api_keys', $keys, false );
+			// Show the plaintext exactly once, right after generating.
+			update_option( 'bcb_new_key_plain', $plain, false );
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=key-created' ) );
+			exit;
+		}
+
+		if ( isset( $_POST['bcb_revoke_key'] ) ) {
+			$index = isset( $_POST['bcb_key_index'] ) ? (int) $_POST['bcb_key_index'] : -1;
+			$keys  = BCB_Helpers::get_api_keys();
+			if ( isset( $keys[ $index ] ) ) {
+				unset( $keys[ $index ] );
+				update_option( 'bcb_api_keys', array_values( $keys ), false );
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=key-revoked' ) );
+			exit;
+		}
+	}
+
+	private static function handle_wallets_actions() {
+		check_admin_referer( 'bcb_wallets' );
+		global $wpdb;
+		$t = BCB_Helpers::tables()['wallets'];
+
+		if ( isset( $_POST['bcb_add_wallet'] ) ) {
+			$address = sanitize_text_field( wp_unslash( $_POST['bcb_wallet_address'] ?? '' ) );
+			if ( '' === $address ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-error' ) );
+				exit;
+			}
+
+			$is_default = ! empty( $_POST['bcb_wallet_default'] ) ? 1 : 0;
+			if ( $is_default ) {
+				$wpdb->update( $t, array( 'is_default' => 0 ), array( 'is_default' => 1 ) );
+			}
+
+			$wpdb->insert(
+				$t,
+				array(
+					'label'      => sanitize_text_field( wp_unslash( $_POST['bcb_wallet_label'] ?? '' ) ),
+					'exchange'   => strtolower( sanitize_text_field( wp_unslash( $_POST['bcb_wallet_exchange'] ?? '' ) ) ),
+					'asset'      => strtoupper( sanitize_text_field( wp_unslash( $_POST['bcb_wallet_asset'] ?? 'USDT' ) ) ),
+					'network'    => sanitize_text_field( wp_unslash( $_POST['bcb_wallet_network'] ?? '' ) ),
+					'address'    => $address,
+					'is_default' => $is_default,
+					'active'     => 1,
+					'created_at' => BCB_Helpers::now(),
+				),
+				array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
+			);
+
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-added' ) );
+			exit;
+		}
+
+		if ( isset( $_POST['bcb_delete_wallet'] ) ) {
+			$id = isset( $_POST['bcb_wallet_id'] ) ? (int) $_POST['bcb_wallet_id'] : 0;
+			if ( $id > 0 ) {
+				$wpdb->delete( $t, array( 'id' => $id ), array( '%d' ) );
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-deleted' ) );
+			exit;
+		}
+
+		if ( isset( $_POST['bcb_toggle_wallet'] ) ) {
+			$id     = isset( $_POST['bcb_wallet_id'] ) ? (int) $_POST['bcb_wallet_id'] : 0;
+			$active = isset( $_POST['bcb_wallet_active'] ) ? (int) $_POST['bcb_wallet_active'] : 0;
+			if ( $id > 0 ) {
+				$wpdb->update( $t, array( 'active' => $active ? 0 : 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-updated' ) );
+			exit;
+		}
+
+		if ( isset( $_POST['bcb_make_default'] ) ) {
+			$id = isset( $_POST['bcb_wallet_id'] ) ? (int) $_POST['bcb_wallet_id'] : 0;
+			if ( $id > 0 ) {
+				$wpdb->update( $t, array( 'is_default' => 0 ), array( 'is_default' => 1 ) );
+				$wpdb->update( $t, array( 'is_default' => 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-updated' ) );
+			exit;
+		}
+	}
+
+	private static function handle_options_actions() {
+		check_admin_referer( 'bcb_options' );
+		update_option( 'bcb_uninstall_drop_data', ! empty( $_POST['bcb_drop_data'] ) ? '1' : '0' );
+
+		if ( isset( $_POST['bcb_alert_email'] ) ) {
+			$email = sanitize_text_field( wp_unslash( $_POST['bcb_alert_email'] ) );
+			update_option( 'bcb_alert_email', is_email( $email ) ? $email : '' );
+		}
+
+		if ( isset( $_POST['bcb_test_alert'] ) ) {
+			$sent = BCB_Helpers::send_alert(
+				'[Crypto Bots] Test alert',
+				"This is a test alert from your Crypto Bots plugin on plant-medicine.shop.\n\nIf you received this, trade and withdrawal alerts will arrive at this address."
+			);
+			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=' . ( $sent ? 'alert-sent' : 'alert-failed' ) ) );
+			exit;
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=options-saved' ) );
+		exit;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Dashboard                                                           */
+	/* ------------------------------------------------------------------ */
+
+	public static function render_dashboard() {
+		$exchange_filter = isset( $_GET['exchange'] ) ? sanitize_text_field( wp_unslash( $_GET['exchange'] ) ) : '';
+		$bot_filter      = isset( $_GET['bot'] ) ? sanitize_text_field( wp_unslash( $_GET['bot'] ) ) : '';
+
+		$overview = BCB_Stats::overview();
+		$trades   = BCB_Stats::latest_trades( 20, $exchange_filter, $bot_filter );
+		$totals   = $overview['totals'];
+
+		$exchanges = BCB_Stats::distinct( 'exchange' );
+		$bots      = BCB_Stats::distinct( 'bot_name' );
+		?>
+		<div class="wrap bcb-wrap">
+			<h1 class="bcb-title">🤖 Crypto Bots — Dashboard</h1>
+
+			<div class="bcb-cards">
+				<div class="bcb-card">
+					<span class="bcb-card-label">All-time Net P&amp;L</span>
+					<span class="bcb-card-value <?php echo $totals['pnl'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>">
+						<?php echo esc_html( BCB_Helpers::format_money( $totals['pnl'], 'USDT', true ) ); ?>
+					</span>
+					<span class="bcb-card-sub"><?php echo (int) $totals['trades']; ?> trades · <?php echo esc_html( $totals['win_rate'] ); ?>% win rate</span>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Last 30 days</span>
+					<span class="bcb-card-value <?php echo $overview['month']['pnl'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>">
+						<?php echo esc_html( BCB_Helpers::format_money( $overview['month']['pnl'], 'USDT', true ) ); ?>
+					</span>
+					<span class="bcb-card-sub"><?php echo (int) $overview['month']['trades']; ?> trades</span>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Last 7 days</span>
+					<span class="bcb-card-value <?php echo $overview['week']['pnl'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>">
+						<?php echo esc_html( BCB_Helpers::format_money( $overview['week']['pnl'], 'USDT', true ) ); ?>
+					</span>
+					<span class="bcb-card-sub"><?php echo (int) $overview['week']['trades']; ?> trades</span>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Today</span>
+					<span class="bcb-card-value <?php echo $overview['today']['pnl'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>">
+						<?php echo esc_html( BCB_Helpers::format_money( $overview['today']['pnl'], 'USDT', true ) ); ?>
+					</span>
+					<span class="bcb-card-sub"><?php echo (int) $overview['today']['trades']; ?> trades</span>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Fees paid (all-time)</span>
+					<span class="bcb-card-value"><?php echo esc_html( BCB_Helpers::format_money( $totals['fees'], 'USDT' ) ); ?></span>
+					<span class="bcb-card-sub"><?php echo (int) $totals['symbols']; ?> symbols · <?php echo (int) $totals['exchanges']; ?> exchanges</span>
+				</div>
+			</div>
+
+			<div class="bcb-section-title">🏆 Best performers</div>
+			<div class="bcb-cards bcb-cards-3">
+				<?php
+				$best_symbol = $overview['best_symbol'];
+				$best_ex     = $overview['best_exchange'];
+				$best_trade  = $overview['best_trade'];
+				?>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Best performing crypto</span>
+					<?php if ( $best_symbol ) : ?>
+						<span class="bcb-card-value"><?php echo esc_html( $best_symbol['name'] ); ?></span>
+						<span class="bcb-card-sub bcb-pos">
+							<?php echo esc_html( BCB_Helpers::format_money( $best_symbol['pnl'], 'USDT', true ) ); ?>
+							· <?php echo (int) $best_symbol['trades']; ?> trades
+						</span>
+					<?php else : ?>
+						<span class="bcb-card-sub">No trade data yet.</span>
+					<?php endif; ?>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Best performing exchange</span>
+					<?php if ( $best_ex ) : ?>
+						<span class="bcb-card-value"><?php echo esc_html( ucfirst( $best_ex['name'] ) ); ?></span>
+						<span class="bcb-card-sub bcb-pos">
+							<?php echo esc_html( BCB_Helpers::format_money( $best_ex['pnl'], 'USDT', true ) ); ?>
+							· <?php echo (int) $best_ex['trades']; ?> trades
+						</span>
+					<?php else : ?>
+						<span class="bcb-card-sub">No trade data yet.</span>
+					<?php endif; ?>
+				</div>
+				<div class="bcb-card">
+					<span class="bcb-card-label">Best single trade</span>
+					<?php if ( $best_trade ) : ?>
+						<span class="bcb-card-value bcb-pos"><?php echo esc_html( BCB_Helpers::format_money( $best_trade['pnl'], $best_trade['currency'], true ) ); ?></span>
+						<span class="bcb-card-sub">
+							<?php
+							/* translators: 1: symbol, 2: bot name, 3: date */
+							echo esc_html( sprintf( '%1$s · %2$s · %3$s', $best_trade['symbol'], $best_trade['bot_name'] ? $best_trade['bot_name'] : '—', mysql2date( 'j M Y, H:i', $best_trade['created_at'] ) ) );
+							?>
+						</span>
+					<?php else : ?>
+						<span class="bcb-card-sub">No profitable trades yet.</span>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="bcb-section-title">📈 Daily net P&amp;L — last 30 days</div>
+			<?php echo self::render_chart( $overview['series'] ); // phpcs:ignore ?>
+
+			<?php echo self::render_bot_card(); // phpcs:ignore ?>
+
+			<div class="bcb-section-title">🧾 Latest 20 trades</div>
+			<form method="get" class="bcb-filters">
+				<input type="hidden" name="page" value="bcb" />
+				<select name="exchange">
+					<option value="">All exchanges</option>
+					<?php foreach ( $exchanges as $ex ) : ?>
+						<option value="<?php echo esc_attr( $ex ); ?>" <?php selected( $exchange_filter, $ex ); ?>><?php echo esc_html( ucfirst( $ex ) ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<select name="bot">
+					<option value="">All bots</option>
+					<?php foreach ( $bots as $bot ) : ?>
+						<option value="<?php echo esc_attr( $bot ); ?>" <?php selected( $bot_filter, $bot ); ?>><?php echo esc_html( $bot ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<button class="button">Filter</button>
+			</form>
+			<table class="widefat striped bcb-table">
+				<thead>
+					<tr>
+						<th>Closed / logged</th>
+						<th>Bot</th>
+						<th>Exchange</th>
+						<th>Symbol</th>
+						<th>Side</th>
+						<th>Qty</th>
+						<th>Price</th>
+						<th>Value</th>
+						<th>Fee</th>
+						<th>P&amp;L</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php if ( empty( $trades ) ) : ?>
+						<tr><td colspan="10">No trades reported yet. Point your bots at the <code>bionic-bots/v1</code> API (see Settings → Crypto Bots).</td></tr>
+					<?php else : ?>
+						<?php foreach ( $trades as $trade ) : ?>
+							<tr>
+								<td><?php echo esc_html( mysql2date( 'j M Y, H:i', $trade['closed_at'] ? $trade['closed_at'] : $trade['created_at'] ) ); ?></td>
+								<td><?php echo esc_html( $trade['bot_name'] ? $trade['bot_name'] : '—' ); ?></td>
+								<td><?php echo esc_html( ucfirst( $trade['exchange'] ) ); ?></td>
+								<td><strong><?php echo esc_html( $trade['symbol'] ); ?></strong></td>
+								<td><?php echo esc_html( strtoupper( $trade['side'] ) ); ?></td>
+								<td><?php echo esc_html( BCB_Helpers::format_qty( $trade['qty'] ) ); ?></td>
+								<td><?php echo esc_html( BCB_Helpers::format_qty( $trade['price'] ) ); ?></td>
+								<td><?php echo esc_html( BCB_Helpers::format_money( $trade['quote_value'], $trade['currency'] ) ); ?></td>
+								<td><?php echo esc_html( BCB_Helpers::format_money( $trade['fee'], $trade['currency'] ) ); ?></td>
+								<td class="<?php echo (float) $trade['pnl'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>">
+									<strong><?php echo esc_html( BCB_Helpers::format_money( $trade['pnl'], $trade['currency'], true ) ); ?></strong>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</tbody>
+			</table>
+
+			<div class="bcb-section-title">💸 Profit withdrawals (reported by bots)</div>
+			<table class="widefat striped bcb-table">
+				<thead>
+					<tr>
+						<th>Date</th>
+						<th>Exchange</th>
+						<th>Asset</th>
+						<th>Amount</th>
+						<th>Destination</th>
+						<th>TxID</th>
+						<th>Status</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php $withdrawals = BCB_Stats::latest_withdrawals( 10 ); ?>
+					<?php if ( empty( $withdrawals ) ) : ?>
+						<tr><td colspan="7">No profit transfers reported yet.</td></tr>
+					<?php else : ?>
+						<?php foreach ( $withdrawals as $w ) : ?>
+							<tr>
+								<td><?php echo esc_html( mysql2date( 'j M Y, H:i', $w['created_at'] ) ); ?></td>
+								<td><?php echo esc_html( ucfirst( $w['exchange'] ) ); ?></td>
+								<td><?php echo esc_html( $w['asset'] ); ?></td>
+								<td><?php echo esc_html( BCB_Helpers::format_money( $w['amount'], $w['asset'] ) ); ?></td>
+								<td><code><?php echo esc_html( $w['wallet_address'] ? $w['wallet_address'] : '—' ); ?></code></td>
+								<td><code><?php echo esc_html( $w['txid'] ? substr( $w['txid'], 0, 18 ) . '…' : '—' ); ?></code></td>
+								<td><?php echo esc_html( ucfirst( $w['status'] ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Bot Control card: heartbeat status + pause/resume commands.
+	 */
+	private static function render_bot_card() {
+		$status = get_option( 'bcb_bot_status' );
+		$cmd    = get_option( 'bcb_bot_command', '' );
+
+		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
+			$inner = '<span class="bcb-card-sub">No heartbeat received yet. The bot checks in on every tick (every 15 min).</span>';
+		} else {
+			$ts    = strtotime( $status['time'] );
+			$age   = time() - $ts;
+			$fresh = $age < 20 * MINUTE_IN_SECONDS;
+			$s     = isset( $status['status'] ) && is_array( $status['status'] ) ? $status['status'] : array();
+			$mode  = isset( $s['mode'] ) ? $s['mode'] : 'unknown';
+			$dot   = ! $fresh ? '🟠 stale' : ( 'paused' === $mode ? '🔴 paused' : '🟢 running' );
+
+			$lines  = '<span class="bcb-card-sub">Last check-in: ' . esc_html( human_time_diff( $ts ) ) . ' ago (' . esc_html( $status['time'] ) . ')</span>';
+			$lines .= '<span class="bcb-card-sub">Status: <strong>' . esc_html( $dot ) . '</strong>';
+			if ( isset( $s['price'] ) ) {
+				$lines .= ' · BTC/GBP last: ' . esc_html( BCB_Helpers::format_money( $s['price'], 'GBP' ) );
+			}
+			$lines .= '</span>';
+
+			if ( isset( $s['position'] ) && is_array( $s['position'] ) && isset( $s['position']['qty'] ) ) {
+				$pos = $s['position'];
+				$lines .= '<span class="bcb-card-sub">Position: ' . esc_html( BCB_Helpers::format_qty( $pos['qty'] ) ) . ' BTC @ entry ' . esc_html( BCB_Helpers::format_money( $pos['entry_price'], 'GBP' ) ) . '</span>';
+				if ( isset( $pos['move_pct'] ) ) {
+					$move = (float) $pos['move_pct'] * 100;
+					$lines .= '<span class="bcb-card-sub ' . ( $move >= 0 ? 'bcb-pos' : 'bcb-neg' ) . '">Unrealised move: ' . esc_html( sprintf( '%+.2f%%', $move ) ) . '</span>';
+				}
+			} else {
+				$lines .= '<span class="bcb-card-sub">Position: flat (no BTC held)</span>';
+			}
+
+			$inner = $lines;
+		}
+
+		$notice = '';
+		if ( 'pause' === $cmd ) {
+			$notice = '<div class="notice notice-inline"><p>⏸ Pause requested — the bot will stop on its next tick (within 15 min).</p></div>';
+		} elseif ( 'resume' === $cmd ) {
+			$notice = '<div class="notice notice-inline"><p>▶️ Resume requested — the bot will continue on its next tick (within 15 min).</p></div>';
+		}
+
+		$html  = '<div class="bcb-section-title">🎛 Bot Control</div>';
+		$html .= '<div class="bcb-card bcb-bot-card">' . $inner . $notice . '<form method="post" class="bcb-inline-form" style="margin:12px 0 0">';
+		$html .= '<input type="hidden" name="bcb_page" value="bot" />';
+		$html .= wp_nonce_field( 'bcb_bot', '_wpnonce', true, false );
+		$html .= '<button class="button button-secondary" name="bcb_bot_pause" value="1">⏸ Pause bot</button> ';
+		$html .= '<button class="button button-primary" name="bcb_bot_resume" value="1">▶️ Resume bot</button>';
+		$html .= '</form></div>';
+		return $html;
+	}
+
+	/** Server-rendered SVG bar chart of daily net P&L. */
+	private static function render_chart( $series ) {
+		if ( empty( $series ) ) {
+			return '<p>No data.</p>';
+		}
+
+		$bar_w   = 14;
+		$gap     = 8;
+		$height  = 140;
+		$mid     = 60;
+		$max_abs = 0.0001;
+		foreach ( $series as $point ) {
+			$max_abs = max( $max_abs, abs( (float) $point['pnl'] ) );
+		}
+
+		$width = count( $series ) * ( $bar_w + $gap ) + $gap;
+		$svg   = '<svg class="bcb-chart" viewBox="0 0 ' . esc_attr( $width ) . ' ' . esc_attr( $height ) . '" role="img" aria-label="Daily net P and L, last 30 days" style="max-width:100%;height:auto;width:' . esc_attr( $width ) . 'px">';
+		$svg  .= '<line x1="0" y1="' . $mid . '" x2="' . $width . '" y2="' . $mid . '" stroke="#dcdcde" stroke-width="1" />';
+
+		$x = $gap;
+		foreach ( $series as $point ) {
+			$pnl  = (float) $point['pnl'];
+			$bh   = max( 2, (int) round( ( abs( $pnl ) / $max_abs ) * ( $mid - 8 ) ) );
+			$y    = $pnl >= 0 ? $mid - $bh : $mid;
+			$date = date_i18n( 'j M', strtotime( $point['date'] . ' 12:00:00' ) );
+			$fill = $pnl >= 0 ? '#00a32a' : '#d63638';
+			$svg .= '<rect x="' . $x . '" y="' . $y . '" width="' . $bar_w . '" height="' . $bh . '" rx="2" fill="' . $fill . '"><title>' . esc_attr( $date . ': ' . BCB_Helpers::format_money( $pnl, 'USDT', true ) ) . '</title></rect>';
+			$x   += $bar_w + $gap;
+		}
+		$svg .= '</svg>';
+
+		return '<div class="bcb-chart-wrap">' . $svg . '</div>';
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Settings                                                            */
+	/* ------------------------------------------------------------------ */
+
+	public static function render_settings() {
+		$keys       = BCB_Helpers::get_api_keys();
+		$new_key    = get_option( 'bcb_new_key_plain', '' );
+		$wallets    = self::get_wallets();
+		$rest_base  = rest_url( 'bionic-bots/v1' );
+		$notice     = isset( $_GET['notice'] ) ? sanitize_key( wp_unslash( $_GET['notice'] ) ) : '';
+		?>
+		<div class="wrap bcb-wrap">
+			<h1 class="bcb-title">⚙️ Crypto Bots — Settings</h1>
+
+			<?php
+			$notices = array(
+				'key-created'    => array( 'success', 'API key created. Copy it now — it is shown only once.' ),
+				'key-revoked'    => array( 'warning', 'API key revoked. Any bot still using it will get 403 responses.' ),
+				'wallet-added'   => array( 'success', 'Profit wallet added.' ),
+				'wallet-deleted' => array( 'success', 'Profit wallet removed.' ),
+				'wallet-updated' => array( 'success', 'Profit wallet updated.' ),
+				'wallet-error'   => array( 'error', 'Wallet address is required.' ),
+				'options-saved'  => array( 'success', 'Options saved.' ),
+				'alert-sent'     => array( 'success', 'Test alert sent — check the inbox (and the spam folder).' ),
+				'alert-failed'   => array( 'error', 'Test alert FAILED to send. Check the alert email address, or the site\'s mail configuration.' ),
+			);
+			if ( $notice && isset( $notices[ $notice ] ) ) {
+				printf(
+					'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+					esc_attr( $notices[ $notice ][0] ),
+					esc_html( $notices[ $notice ][1] )
+				);
+			}
+			?>
+
+			<div class="bcb-section-title">🔑 Bot API keys</div>
+			<p>Bots authenticate with a <code>X-BCB-Key</code> header against the REST API at <code><?php echo esc_html( $rest_base ); ?></code>. Keys are stored hashed and cannot be recovered — only replaced.</p>
+
+			<?php if ( $new_key ) : ?>
+				<div class="notice notice-success"><p>
+					<strong>Your new key (copy now, shown once):</strong><br />
+					<code class="bcb-key-plain"><?php echo esc_html( $new_key ); ?></code>
+				</p></div>
+				<?php delete_option( 'bcb_new_key_plain' ); ?>
+			<?php endif; ?>
+
+			<table class="widefat striped bcb-table">
+				<thead>
+					<tr><th>Label</th><th>Key (hashed)</th><th>Created</th><th>Actions</th></tr>
+				</thead>
+				<tbody>
+					<?php if ( empty( $keys ) ) : ?>
+						<tr><td colspan="4">No API keys yet — generate one below.</td></tr>
+					<?php else : ?>
+						<?php foreach ( $keys as $i => $key ) : ?>
+							<tr>
+								<td><?php echo esc_html( $key['label'] ); ?></td>
+								<td><code><?php echo esc_html( substr( $key['hash'], 0, 12 ) ); ?>…</code></td>
+								<td><?php echo esc_html( $key['created'] ); ?></td>
+								<td>
+									<form method="post" style="display:inline">
+										<input type="hidden" name="bcb_page" value="keys" />
+										<?php wp_nonce_field( 'bcb_keys' ); ?>
+										<input type="hidden" name="bcb_key_index" value="<?php echo esc_attr( $i ); ?>" />
+										<button class="button button-link-delete" name="bcb_revoke_key" value="1" onclick="return confirm('Revoke this key?');">Revoke</button>
+									</form>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</tbody>
+			</table>
+
+			<form method="post" class="bcb-inline-form">
+				<input type="hidden" name="bcb_page" value="keys" />
+				<?php wp_nonce_field( 'bcb_keys' ); ?>
+				<input type="text" name="bcb_key_label" placeholder="Label, e.g. binance-grid-bot" />
+				<button class="button button-primary" name="bcb_generate_key" value="1">Generate new API key</button>
+			</form>
+
+			<div class="bcb-section-title">💸 Profit wallets (where bots send profits)</div>
+			<p>These are <strong>public deposit addresses only</strong> — never store exchange API secrets or private keys here. Bots fetch them via <code>GET <?php echo esc_html( $rest_base ); ?>/wallets</code>.</p>
+
+			<table class="widefat striped bcb-table">
+				<thead>
+					<tr><th>Label</th><th>Exchange</th><th>Asset</th><th>Network</th><th>Address</th><th>Default</th><th>Active</th><th>Actions</th></tr>
+				</thead>
+				<tbody>
+					<?php if ( empty( $wallets ) ) : ?>
+						<tr><td colspan="8">No profit wallets yet — add one below.</td></tr>
+					<?php else : ?>
+						<?php foreach ( $wallets as $wallet ) : ?>
+							<tr>
+								<td><?php echo esc_html( $wallet['label'] ); ?></td>
+								<td><?php echo esc_html( ucfirst( $wallet['exchange'] ) ); ?></td>
+								<td><?php echo esc_html( $wallet['asset'] ); ?></td>
+								<td><?php echo esc_html( $wallet['network'] ); ?></td>
+								<td><code><?php echo esc_html( substr( $wallet['address'], 0, 14 ) . '…' . substr( $wallet['address'], -6 ) ); ?></code></td>
+								<td><?php echo (int) $wallet['is_default'] ? '★ Default' : ''; ?></td>
+								<td><?php echo (int) $wallet['active'] ? 'Yes' : 'No'; ?></td>
+								<td>
+									<form method="post" style="display:inline" onclick="return confirm('Are you sure?');">
+										<input type="hidden" name="bcb_page" value="wallets" />
+										<?php wp_nonce_field( 'bcb_wallets' ); ?>
+										<input type="hidden" name="bcb_wallet_id" value="<?php echo esc_attr( $wallet['id'] ); ?>" />
+										<button class="button" name="bcb_toggle_wallet" value="1"><?php echo (int) $wallet['active'] ? 'Deactivate' : 'Activate'; ?></button>
+										<?php if ( ! (int) $wallet['is_default'] ) : ?>
+											<button class="button" name="bcb_make_default" value="1">Make default</button>
+										<?php endif; ?>
+										<button class="button button-link-delete" name="bcb_delete_wallet" value="1">Delete</button>
+									</form>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</tbody>
+			</table>
+
+			<h3>Add a profit wallet</h3>
+			<form method="post" class="bcb-wallet-form">
+				<input type="hidden" name="bcb_page" value="wallets" />
+				<?php wp_nonce_field( 'bcb_wallets' ); ?>
+				<p>
+					<label>Label<br /><input type="text" name="bcb_wallet_label" placeholder="e.g. Main cold wallet" /></label>
+					<label>Exchange (optional)<br /><input type="text" name="bcb_wallet_exchange" placeholder="e.g. binance" /></label>
+					<label>Asset<br /><input type="text" name="bcb_wallet_asset" value="USDT" /></label>
+					<label>Network<br /><input type="text" name="bcb_wallet_network" placeholder="e.g. TRC20, ERC20, BTC" /></label>
+				</p>
+				<p>
+					<label>Address<br /><input type="text" name="bcb_wallet_address" class="bcb-wide" placeholder="Public wallet address" required /></label>
+				</p>
+				<p>
+					<label><input type="checkbox" name="bcb_wallet_default" value="1" /> Make this the default destination</label>
+				</p>
+				<p><button class="button button-primary" name="bcb_add_wallet" value="1">Add wallet</button></p>
+			</form>
+
+			<div class="bcb-section-title">✉️ Trade alerts</div>
+			<form method="post">
+				<input type="hidden" name="bcb_page" value="options" />
+				<?php wp_nonce_field( 'bcb_options' ); ?>
+				<p>An email is sent to this address whenever a bot reports a new trade or a profit withdrawal. Leave empty to disable alerts.</p>
+				<p><input type="text" name="bcb_alert_email" value="<?php echo esc_attr( get_option( 'bcb_alert_email', '' ) ); ?>" class="bcb-wide" placeholder="alerts@example.com" /></p>
+				<p>
+					<button class="button button-primary" name="bcb_save_alert" value="1">Save alert address</button>
+					<button class="button" name="bcb_test_alert" value="1">Send test email</button>
+				</p>
+			</form>
+
+			<div class="bcb-section-title">🧹 Data</div>
+			<form method="post">
+				<input type="hidden" name="bcb_page" value="options" />
+				<?php wp_nonce_field( 'bcb_options' ); ?>
+				<label><input type="checkbox" name="bcb_drop_data" value="1" <?php checked( get_option( 'bcb_uninstall_drop_data', '0' ), '1' ); ?> /> Delete all trade data when the plugin is uninstalled</label>
+				<p><button class="button" name="bcb_save_options" value="1">Save</button></p>
+			</form>
+
+			<div class="bcb-section-title">📡 Bot integration cheat-sheet</div>
+			<p><code>POST <?php echo esc_html( $rest_base ); ?>/trades</code> — header <code>X-BCB-Key: &lt;your key&gt;</code>, JSON body: <code>{"bot_name":"grid-01","exchange":"binance","symbol":"BTC/USDT","side":"sell","qty":0.05,"price":64000,"pnl":125.50,"closed_at":"2026-09-28T10:00:00Z"}</code></p>
+			<p><code>GET <?php echo esc_html( $rest_base ); ?>/wallets?exchange=binance</code> — fetch profit destinations.</p>
+			<p><code>POST <?php echo esc_html( $rest_base ); ?>/withdrawals</code> — report a profit transfer: <code>{"exchange":"binance","asset":"USDT","amount":250,"wallet_address":"…","txid":"…","status":"completed"}</code></p>
+			<p><code>GET <?php echo esc_html( $rest_base ); ?>/ping</code> — connectivity test.</p>
+		</div>
+		<?php
+	}
+
+	public static function get_wallets() {
+		global $wpdb;
+		$t = BCB_Helpers::tables()['wallets'];
+		return $wpdb->get_results( "SELECT * FROM {$t} ORDER BY is_default DESC, active DESC, id ASC", ARRAY_A );
+	}
+}
