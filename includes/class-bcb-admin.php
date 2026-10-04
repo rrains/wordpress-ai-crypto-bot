@@ -212,6 +212,19 @@ class BCB_Admin {
 
 		$exchanges = BCB_Stats::distinct( 'exchange' );
 		$bots      = BCB_Stats::distinct( 'bot_name' );
+
+		// Unrealised P&L from a fresh bot heartbeat (open position).
+		$unrealised = null;
+		$bot_status = get_option( 'bcb_bot_status' );
+		if ( is_array( $bot_status ) && ! empty( $bot_status['time'] )
+			&& ( time() - (int) strtotime( $bot_status['time'] ) ) < 20 * MINUTE_IN_SECONDS
+			&& isset( $bot_status['status']['position']['move_pct'] ) ) {
+			$unrealised = array(
+				'pct'   => (float) $bot_status['status']['position']['move_pct'] * 100,
+				'qty'   => $bot_status['status']['position']['qty'],
+				'entry' => $bot_status['status']['position']['entry_price'],
+			);
+		}
 		?>
 		<div class="wrap bcb-wrap">
 			<h1 class="bcb-title">🤖 Crypto Bots — Dashboard</h1>
@@ -223,6 +236,9 @@ class BCB_Admin {
 						<?php echo esc_html( BCB_Helpers::format_money( $totals['pnl'], 'USDT', true ) ); ?>
 					</span>
 					<span class="bcb-card-sub"><?php echo (int) $totals['trades']; ?> trades · <?php echo esc_html( $totals['win_rate'] ); ?>% win rate</span>
+				<?php if ( $unrealised ) : ?>
+					<span class="bcb-card-sub">Unrealised: <strong class="<?php echo $unrealised['pct'] >= 0 ? 'bcb-pos' : 'bcb-neg'; ?>"><?php echo esc_html( sprintf( '%+.2f%%', $unrealised['pct'] ) ); ?></strong> — open position (<?php echo esc_html( BCB_Helpers::format_qty( $unrealised['qty'] ) ); ?> BTC @ entry <?php echo esc_html( BCB_Helpers::format_money( $unrealised['entry'], 'GBP' ) ); ?>)</span>
+				<?php endif; ?>
 				</div>
 				<div class="bcb-card">
 					<span class="bcb-card-label">Last 30 days</span>

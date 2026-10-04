@@ -99,6 +99,9 @@ class BCB_Api {
 		$body  = $request->get_json_params();
 		$status = is_array( $body ) ? $body : array();
 		update_option( 'bcb_bot_status', array( 'time' => BCB_Helpers::now(), 'status' => $status ), false );
+		if ( class_exists( 'BCB_Watchdog' ) ) {
+			BCB_Watchdog::heartbeat_received();
+		}
 		$command = get_option( 'bcb_bot_command', '' );
 		if ( $command ) {
 			delete_option( 'bcb_bot_command' );

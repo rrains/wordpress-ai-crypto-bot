@@ -124,6 +124,13 @@ Quick test with curl:
 
 == Changelog ==
 
+= 1.1.0 =
+* New: heartbeat watchdog — email alert when a bot stops checking in
+  (catches maintenance-mode/coming-soon outages within ~45 minutes),
+  plus a recovery notice when reporting resumes.
+* New: unrealised P&L line on the dashboard's All-time card
+  (from the bot heartbeat, for open positions).
+
 = 1.0.0 =
 * Initial release: dashboard, P&L stats, best performers, trade ingest API,
   wallets endpoint, withdrawal log, public shortcode.
