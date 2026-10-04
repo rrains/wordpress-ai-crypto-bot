@@ -177,6 +177,19 @@ A cleaned-up, documented reference implementation is planned for v1.1.
 - Wallet addresses stored here are **public addresses only**
 - All endpoints reject unauthenticated requests (403)
 
+## Roadmap
+
+The current release (v1.x) is the foundation. The **Pro** edition builds on it in phases:
+
+- [ ] **Pro 0 — Licensing & activation** — per-site license keys, so Pro installations can be sold and activated
+- [ ] **Pro 1 — Multi-bot dashboard** — bot registry (up to 10 to start), one dashboard tab per registered bot, per-bot API keys, symbol filter on all trade tables
+- [ ] **Pro 2 — Exchange connector framework** — a common connector interface (`balance`, `ticker`, `buy`, `sell`) with Kraken as the reference implementation, plus new connectors (Binance, Bybit, OKX, Coinbase Advanced)
+- [ ] **Pro 3 — Multi-pair strategies** — run the same strategy across multiple pairs (BTC/USDC, XRP/USDT, SOL/USDT, ETH/USDT, DOGE/USDT, LTC/USDT …), each with its own position state
+- [ ] **Pro 4 — Capital tracking & true ROI** — record deposits, compute real return-on-capital per bot and per exchange
+- [ ] **Pro 5 — Notification suite** — Telegram digests, stale-heartbeat alerts as standard, configurable thresholds
+
+*Note on pairs: availability depends on the exchange — e.g. XMR/USDT has been delisted from several major exchanges, so pair support is checked per exchange before release.*
+
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE).
