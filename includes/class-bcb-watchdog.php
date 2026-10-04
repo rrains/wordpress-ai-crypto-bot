@@ -35,13 +35,15 @@ class BCB_Watchdog {
 		wp_clear_scheduled_hook( self::HOOK );
 	}
 
-	/** Age of the last stored heartbeat in seconds, or null if none ever stored. */
+	/** Age of the last stored heartbeat in seconds, or null if none ever stored.
+	 *  Uses the UTC timestamp — the display 'time' field is site-local and
+	 *  must never be used for staleness math. */
 	private static function age_seconds() {
 		$status = get_option( 'bcb_bot_status' );
-		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
+		if ( ! is_array( $status ) || empty( $status['time_utc'] ) ) {
 			return null;
 		}
-		$ts = strtotime( $status['time'] );
+		$ts = strtotime( $status['time_utc'] . ' UTC' );
 		return $ts ? ( time() - $ts ) : null;
 	}
 

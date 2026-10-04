@@ -124,6 +124,12 @@ Quick test with curl:
 
 == Changelog ==
 
+= 1.1.1 =
+* Fix: heartbeat staleness math after the server timezone change — heartbeats
+  now store an explicit UTC timestamp (time_utc) used for all freshness checks,
+  while the dashboard displays site-local time. The v1.1.0 watchdog could
+  never fire once the site timezone was set to anything but UTC.
+
 = 1.1.0 =
 * New: heartbeat watchdog — email alert when a bot stops checking in
   (catches maintenance-mode/coming-soon outages within ~45 minutes),

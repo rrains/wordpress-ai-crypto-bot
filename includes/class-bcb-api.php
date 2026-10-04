@@ -98,7 +98,7 @@ class BCB_Api {
 	public static function heartbeat( $request ) {
 		$body  = $request->get_json_params();
 		$status = is_array( $body ) ? $body : array();
-		update_option( 'bcb_bot_status', array( 'time' => BCB_Helpers::now(), 'status' => $status ), false );
+		update_option( 'bcb_bot_status', array( 'time' => BCB_Helpers::now(), 'time_utc' => gmdate( 'Y-m-d H:i:s' ), 'status' => $status ), false );
 		if ( class_exists( 'BCB_Watchdog' ) ) {
 			BCB_Watchdog::heartbeat_received();
 		}

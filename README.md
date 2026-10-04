@@ -6,7 +6,7 @@ WordPress AI Crypto Bot is the reporting layer for your trading bots. Your bots 
 their own exchange connections and API secrets — they simply **report** each
 trade to this plugin, and you get a live, private dashboard inside WordPress.
 
-![status](https://img.shields.io/badge/status-v1.1.0-green)
+![status](https://img.shields.io/badge/status-v1.1.1-green)
 
 ## Features
 

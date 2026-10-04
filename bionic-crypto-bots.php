@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WordPress AI Crypto Bot
  * Description:       Dashboard and REST API interface for your crypto trading bots — latest trades, P&L, best performers, and profit wallet destinations.
- * Version:           1.1.0
+ * Version:           1.1.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            rains + Bionic
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BCB_VERSION', '1.1.0' );
+define( 'BCB_VERSION', '1.1.1' );
 define( 'BCB_FILE', __FILE__ );
 define( 'BCB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BCB_URL', plugin_dir_url( __FILE__ ) );

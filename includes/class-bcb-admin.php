@@ -216,8 +216,9 @@ class BCB_Admin {
 		// Unrealised P&L from a fresh bot heartbeat (open position).
 		$unrealised = null;
 		$bot_status = get_option( 'bcb_bot_status' );
-		if ( is_array( $bot_status ) && ! empty( $bot_status['time'] )
-			&& ( time() - (int) strtotime( $bot_status['time'] ) ) < 20 * MINUTE_IN_SECONDS
+		$ts_utc = ( is_array( $bot_status ) && ! empty( $bot_status['time_utc'] ) ) ? strtotime( $bot_status['time_utc'] . ' UTC' ) : 0;
+		if ( is_array( $bot_status ) && $ts_utc
+			&& ( time() - $ts_utc ) < 20 * MINUTE_IN_SECONDS
 			&& isset( $bot_status['status']['position']['move_pct'] ) ) {
 			$unrealised = array(
 				'pct'   => (float) $bot_status['status']['position']['move_pct'] * 100,
@@ -422,14 +423,15 @@ class BCB_Admin {
 		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
 			$inner = '<span class="bcb-card-sub">No heartbeat received yet. The bot checks in on every tick (every 15 min).</span>';
 		} else {
-			$ts    = strtotime( $status['time'] );
-			$age   = time() - $ts;
-			$fresh = $age < 20 * MINUTE_IN_SECONDS;
+			// Freshness math uses the UTC field; the displayed time is site-local.
+			$ts_utc = ! empty( $status['time_utc'] ) ? strtotime( $status['time_utc'] . ' UTC' ) : strtotime( $status['time'] );
+			$age    = time() - $ts_utc;
+			$fresh  = $age < 20 * MINUTE_IN_SECONDS;
 			$s     = isset( $status['status'] ) && is_array( $status['status'] ) ? $status['status'] : array();
 			$mode  = isset( $s['mode'] ) ? $s['mode'] : 'unknown';
 			$dot   = ! $fresh ? '🟠 stale' : ( 'paused' === $mode ? '🔴 paused' : '🟢 running' );
 
-			$lines  = '<span class="bcb-card-sub">Last check-in: ' . esc_html( human_time_diff( $ts ) ) . ' ago (' . esc_html( $status['time'] ) . ')</span>';
+			$lines  = '<span class="bcb-card-sub">Last check-in: ' . esc_html( human_time_diff( $ts_utc ) ) . ' ago (' . esc_html( $status['time'] ) . ' site time)</span>';
 			$lines .= '<span class="bcb-card-sub">Status: <strong>' . esc_html( $dot ) . '</strong>';
 			if ( isset( $s['price'] ) ) {
 				$lines .= ' · BTC/GBP last: ' . esc_html( BCB_Helpers::format_money( $s['price'], 'GBP' ) );
