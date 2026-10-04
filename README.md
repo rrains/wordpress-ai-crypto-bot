@@ -61,6 +61,22 @@ The plugin itself runs on any WordPress-capable host. The **reference bot connec
 
 Known Plesk quirks: the `wp` CLI shim fails with `php: command not found` unless you prefix the PATH (`export PATH=/opt/plesk/php/8.2/bin:$PATH`), and WP-CLI needs a raised memory limit (`php -d memory_limit=512M` on WP 6.5+).
 
+### PHP memory requirements
+
+Modern WordPress (6.5+) with WooCommerce and several plugins routinely exceeds the default **128M** PHP memory limit, causing random `Allowed memory size exhausted` fatal errors — especially in `wp-admin` and WP Toolkit's single-sign-on login.
+
+Fix it either way (both is best):
+
+1. **Hosting-level**: set `memory_limit` to `512M` in your hosting panel's PHP settings (Plesk: *Websites & Domains → PHP Settings → memory_limit*).
+2. **WordPress-level**: add to `wp-config.php` *before* the “stop editing” comment:
+
+```php
+define( 'WP_MEMORY_LIMIT', '512M' );
+define( 'WP_MAX_MEMORY_LIMIT', '512M' );
+```
+
+WordPress can raise its own memory limit at runtime (PHP allows `memory_limit` to be increased but not decreased), so the `wp-config.php` constants work even if your host caps the php.ini value at 128M. `WP_MAX_MEMORY_LIMIT` specifically governs `wp-admin` requests, which are the heaviest.
+
 ## Installation
 
 1. Download the latest release zip and install via
