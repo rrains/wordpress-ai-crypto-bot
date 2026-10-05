@@ -55,7 +55,7 @@ The plugin itself runs on any WordPress-capable host. The **reference bot connec
 - **Cron access** — the strategy runs on an interval (e.g. every 15 minutes); system crontab or Plesk Scheduled Tasks both work
 - **Outbound HTTPS** — the bot needs to reach `api.kraken.com` and your WordPress site
 - **A stable outbound IP address** — strongly recommended so you can IP-restrict the exchange API key to your bot's server
-- **A writable directory outside the web root** for secrets (e.g. `~/.config/bionic/`) — never store API keys inside `httpdocs`/`public_html`
+- **A writable directory outside the web root** for secrets (e.g. `~/.config/ctb/`) — never store API keys inside `httpdocs`/`public_html`
 - **HTTPS on the WordPress site** — mandatory, so bot API keys are never sent in cleartext
 - Recommended: NTP time sync (Kraken rejects requests with bad nonces), fail2ban on SSH/mail, and scheduled database backups
 
