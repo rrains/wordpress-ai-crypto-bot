@@ -192,4 +192,5 @@ The current release (v1.x) is the foundation. The **Pro** edition builds on it i
 
 ## License
 
-GPL-2.0-or-later. See [LICENSE](LICENSE).
+- **Code:** GPL-2.0-or-later — see [LICENSE](LICENSE)
+- **Documentation & content:** [CC BY-SA 4.0](LICENSE-DOCS.md) — the code itself must stay GPL (WordPress requirement); Creative Commons applies to the docs and written content.
