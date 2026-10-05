@@ -14,7 +14,37 @@ class CTB_Install {
 		update_option( 'ctb_db_version', CTB_VERSION );
 	}
 
+	public static function maybe_migrate_prefix() {
+		global $wpdb;
+		if ( get_option( 'ctb_prefix_migrated' ) ) {
+			return;
+		}
+		// 1. Rename tables from the old bcb_ prefix.
+		foreach ( array( 'trades', 'wallets', 'withdrawals', 'capital' ) as $t ) {
+			$old = $wpdb->prefix . 'bcb_' . $t;
+			$new = $wpdb->prefix . 'ctb_' . $t;
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $old ) ) === $old
+				&& $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $new ) ) !== $new ) {
+				$wpdb->query( "RENAME TABLE `{$old}` TO `{$new}`" );
+			}
+		}
+		// 2. Rename stored options.
+		foreach ( array( 'api_keys', 'new_key_plain', 'alert_email', 'strategy', 'bot_status', 'bot_command', 'stale_alerted', 'uninstall_drop_data', 'db_version' ) as $o ) {
+			$old = 'bcb_' . $o;
+			$new = 'ctb_' . $o;
+			$has_old = $wpdb->get_var( $wpdb->prepare( "SELECT option_id FROM {$wpdb->options} WHERE option_name = %s", $old ) );
+			$has_new = $wpdb->get_var( $wpdb->prepare( "SELECT option_id FROM {$wpdb->options} WHERE option_name = %s", $new ) );
+			if ( $has_old && ! $has_new ) {
+				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_name = %s WHERE option_name = %s", $new, $old ) );
+			}
+		}
+		// 3. The watchdog cron hook was renamed — drop the old schedule; init reschedules the new one.
+		wp_clear_scheduled_hook( 'bcb_heartbeat_watchdog' );
+		update_option( 'ctb_prefix_migrated', 1 );
+	}
+
 	public static function maybe_upgrade() {
+		self::maybe_migrate_prefix();
 		if ( get_option( 'ctb_db_version' ) !== CTB_VERSION ) {
 			self::create_tables();
 			update_option( 'ctb_db_version', CTB_VERSION );
