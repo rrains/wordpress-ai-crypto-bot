@@ -29,7 +29,7 @@ Bots authenticate to the plugin with a generated API key sent as an
 
 == Installation ==
 
-1. Zip the `bionic-crypto-bots` folder and upload it via
+1. Zip the `wordpress-ai-crypto-bot` folder and upload it via
    **Plugins → Add New → Upload Plugin**, then activate.
 2. Go to **Crypto Bots → Settings** and generate an API key. Copy it
    immediately — it is shown only once.
