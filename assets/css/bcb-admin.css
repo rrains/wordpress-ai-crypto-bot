@@ -1,21 +1,21 @@
 /* Bionic Crypto Bots — admin styles */
 
-.bcb-wrap { max-width: 1200px; }
+.ctb-wrap { max-width: 1200px; }
 
-.bcb-title { display: flex; align-items: center; gap: 8px; }
+.ctb-title { display: flex; align-items: center; gap: 8px; }
 
-.bcb-cards {
+.ctb-cards {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 	gap: 16px;
 	margin: 16px 0 24px;
 }
 
-.bcb-cards-3 {
+.ctb-cards-3 {
 	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.bcb-card {
+.ctb-card {
 	background: #fff;
 	border: 1px solid #dcdcde;
 	border-radius: 8px;
@@ -26,7 +26,7 @@
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-.bcb-card-label {
+.ctb-card-label {
 	font-size: 12px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -34,30 +34,30 @@
 	font-weight: 600;
 }
 
-.bcb-card-value {
+.ctb-card-value {
 	font-size: 24px;
 	font-weight: 700;
 	line-height: 1.2;
 }
 
-.bcb-card-sub {
+.ctb-card-sub {
 	font-size: 13px;
 	color: #646970;
 }
 
-.bcb-pos { color: #00a32a; }
-.bcb-neg { color: #d63638; }
+.ctb-pos { color: #00a32a; }
+.ctb-neg { color: #d63638; }
 
-.bcb-section-title {
+.ctb-section-title {
 	font-size: 15px;
 	font-weight: 700;
 	margin: 28px 0 10px;
 }
 
-.bcb-table { margin-top: 8px; }
-.bcb-table td, .bcb-table th { vertical-align: middle; }
+.ctb-table { margin-top: 8px; }
+.ctb-table td, .ctb-table th { vertical-align: middle; }
 
-.bcb-chart-wrap {
+.ctb-chart-wrap {
 	background: #fff;
 	border: 1px solid #dcdcde;
 	border-radius: 8px;
@@ -65,24 +65,24 @@
 	margin-bottom: 8px;
 }
 
-.bcb-filters { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
+.ctb-filters { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
 
-.bcb-inline-form { margin: 16px 0 32px; display: flex; gap: 8px; align-items: center; }
-.bcb-inline-form input[type="text"] { width: 280px; }
+.ctb-inline-form { margin: 16px 0 32px; display: flex; gap: 8px; align-items: center; }
+.ctb-inline-form input[type="text"] { width: 280px; }
 
-.bcb-wallet-form label { display: inline-block; margin-right: 16px; }
-.bcb-wallet-form input[type="text"] { width: 200px; }
-.bcb-wallet-form .bcb-wide { width: 480px; max-width: 100%; }
+.ctb-wallet-form label { display: inline-block; margin-right: 16px; }
+.ctb-wallet-form input[type="text"] { width: 200px; }
+.ctb-wallet-form .ctb-wide { width: 480px; max-width: 100%; }
 
-.bcb-key-plain {
+.ctb-key-plain {
 	font-size: 14px;
 	word-break: break-all;
 	user-select: all;
 }
 
-.bcb-public { font-size: 15px; }
-.bcb-public-title { margin-bottom: 8px; }
-.bcb-public-stats {
+.ctb-public { font-size: 15px; }
+.ctb-public-title { margin-bottom: 8px; }
+.ctb-public-stats {
 	list-style: none;
 	display: flex;
 	flex-wrap: wrap;
@@ -90,11 +90,11 @@
 	padding: 0;
 	margin: 0 0 16px;
 }
-.bcb-public-stats li { display: flex; flex-direction: column; }
-.bcb-stat-label { font-size: 12px; text-transform: uppercase; color: #646970; }
-.bcb-stat-value { font-size: 20px; font-weight: 700; }
-.bcb-public-trades { border-collapse: collapse; width: 100%; max-width: 720px; }
-.bcb-public-trades th, .bcb-public-trades td {
+.ctb-public-stats li { display: flex; flex-direction: column; }
+.ctb-stat-label { font-size: 12px; text-transform: uppercase; color: #646970; }
+.ctb-stat-value { font-size: 20px; font-weight: 700; }
+.ctb-public-trades { border-collapse: collapse; width: 100%; max-width: 720px; }
+.ctb-public-trades th, .ctb-public-trades td {
 	padding: 6px 10px;
 	border-bottom: 1px solid #e2e4e7;
 	text-align: left;

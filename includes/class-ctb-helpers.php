@@ -7,14 +7,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class BCB_Helpers {
+class CTB_Helpers {
 
 	public static function tables() {
 		global $wpdb;
 		return array(
-			'trades'      => $wpdb->prefix . 'bcb_trades',
-			'wallets'     => $wpdb->prefix . 'bcb_wallets',
-			'withdrawals' => $wpdb->prefix . 'bcb_withdrawals',
+			'trades'      => $wpdb->prefix . 'ctb_trades',
+			'wallets'     => $wpdb->prefix . 'ctb_wallets',
+			'withdrawals' => $wpdb->prefix . 'ctb_withdrawals',
 		);
 	}
 
@@ -50,7 +50,7 @@ class BCB_Helpers {
 
 	/** Generate a new API key. Returns plaintext; only the SHA-256 hash is stored. */
 	public static function generate_api_key() {
-		return 'bcbk_' . wp_generate_password( 40, false, false );
+		return 'ctbk_' . wp_generate_password( 40, false, false );
 	}
 
 	public static function hash_key( $key ) {
@@ -58,7 +58,7 @@ class BCB_Helpers {
 	}
 
 	public static function get_api_keys() {
-		$keys = get_option( 'bcb_api_keys', array() );
+		$keys = get_option( 'ctb_api_keys', array() );
 		return is_array( $keys ) ? $keys : array();
 	}
 
@@ -78,7 +78,7 @@ class BCB_Helpers {
 
 	/** Configured alert email (empty = alerts off). */
 	public static function alert_email() {
-		$to = trim( (string) get_option( 'bcb_alert_email', '' ) );
+		$to = trim( (string) get_option( 'ctb_alert_email', '' ) );
 		return is_email( $to ) ? $to : '';
 	}
 

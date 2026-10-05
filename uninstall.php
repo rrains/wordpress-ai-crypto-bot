@@ -7,17 +7,17 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-if ( '1' !== get_option( 'bcb_uninstall_drop_data', '0' ) ) {
+if ( '1' !== get_option( 'ctb_uninstall_drop_data', '0' ) ) {
 	return;
 }
 
 global $wpdb;
 
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}bcb_trades" );
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}bcb_wallets" );
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}bcb_withdrawals" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}ctb_trades" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}ctb_wallets" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}ctb_withdrawals" );
 
-delete_option( 'bcb_db_version' );
-delete_option( 'bcb_api_keys' );
-delete_option( 'bcb_new_key_plain' );
-delete_option( 'bcb_uninstall_drop_data' );
+delete_option( 'ctb_db_version' );
+delete_option( 'ctb_api_keys' );
+delete_option( 'ctb_new_key_plain' );
+delete_option( 'ctb_uninstall_drop_data' );

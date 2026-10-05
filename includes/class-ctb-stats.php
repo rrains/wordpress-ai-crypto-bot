@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class BCB_Stats {
+class CTB_Stats {
 
 	/**
 	 * Full dashboard overview.
@@ -26,7 +26,7 @@ class BCB_Stats {
 	 */
 	public static function overview() {
 		global $wpdb;
-		$t = BCB_Helpers::tables()['trades'];
+		$t = CTB_Helpers::tables()['trades'];
 
 		$now      = new DateTime( 'now', wp_timezone() );
 		$today    = ( clone $now )->setTime( 0, 0, 0 );
@@ -147,7 +147,7 @@ class BCB_Stats {
 	/** Latest trades, newest first. */
 	public static function latest_trades( $limit = 20, $exchange = '', $bot = '' ) {
 		global $wpdb;
-		$t    = BCB_Helpers::tables()['trades'];
+		$t    = CTB_Helpers::tables()['trades'];
 		$sql  = "SELECT * FROM {$t} WHERE 1=1";
 		$args = array();
 
@@ -170,7 +170,7 @@ class BCB_Stats {
 	/** Distinct exchanges / bots seen, for filter dropdowns. */
 	public static function distinct( $column ) {
 		global $wpdb;
-		$t = BCB_Helpers::tables()['trades'];
+		$t = CTB_Helpers::tables()['trades'];
 		if ( ! in_array( $column, array( 'exchange', 'bot_name', 'symbol' ), true ) ) {
 			return array();
 		}
@@ -181,7 +181,7 @@ class BCB_Stats {
 	/** Leaderboard rows (top N by net P&L). */
 	public static function leaderboard( $column, $limit = 5 ) {
 		global $wpdb;
-		$t = BCB_Helpers::tables()['trades'];
+		$t = CTB_Helpers::tables()['trades'];
 		if ( ! in_array( $column, array( 'symbol', 'exchange', 'bot_name' ), true ) ) {
 			return array();
 		}
@@ -199,7 +199,7 @@ class BCB_Stats {
 	/** Latest reported profit withdrawals. */
 	public static function latest_withdrawals( $limit = 10 ) {
 		global $wpdb;
-		$t = BCB_Helpers::tables()['withdrawals'];
+		$t = CTB_Helpers::tables()['withdrawals'];
 		return $wpdb->get_results(
 			$wpdb->prepare( "SELECT * FROM {$t} ORDER BY created_at DESC, id DESC LIMIT %d", (int) $limit ),
 			ARRAY_A

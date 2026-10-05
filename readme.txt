@@ -25,7 +25,7 @@ closed trade to this plugin, and you get:
 
 **Security model:** the plugin never holds exchange API keys or private keys.
 Bots authenticate to the plugin with a generated API key sent as an
-`X-BCB-Key` header. Wallet addresses stored here are public addresses only.
+`X-CTB-Key` header. Wallet addresses stored here are public addresses only.
 
 == Installation ==
 
@@ -43,14 +43,14 @@ Bots authenticate to the plugin with a generated API key sent as an
    **WordPress → Install** via the WordPress Toolkit) and make sure it is
    served over HTTPS — a free Let's Encrypt certificate from
    **Hosting Settings → SSL/TLS Certificates** is fine. The bots must call
-   the API over HTTPS so the `X-BCB-Key` header is not exposed in cleartext.
+   the API over HTTPS so the `X-CTB-Key` header is not exposed in cleartext.
 2. Under the subscription's **PHP Settings**, pick PHP 8.1+ for the domain.
 3. Upload and activate the plugin (either via WP admin as above, or in Plesk:
    **Files** → `httpdocs/wp-content/plugins/`, then activate in WP admin).
 4. Verify pretty permalinks so the REST namespace resolves:
    WP admin → Settings → Permalinks → any non-plain option. Then check
    `https://host.rainsford.net/wp-json/bionic-bots/v1/ping` in a browser —
-   it should answer `403 {"code":"bcb_forbidden"}` without a key (proving
+   it should answer `403 {"code":"ctb_forbidden"}` without a key (proving
    the route is live) and `200 {"ok":true,...}` with the key header.
 5. If you run bots on the same VPS, no extra firewall work is needed (they
    hit the site over the public URL). If bots run elsewhere, nothing to
@@ -65,7 +65,7 @@ Bots authenticate to the plugin with a generated API key sent as an
 
 Base URL: `https://host.rainsford.net/wp-json/bionic-bots/v1`
 (on your Plesk VPS; adjust if WordPress is in a subdirectory)
-Auth header on every request: `X-BCB-Key: <your key>`
+Auth header on every request: `X-CTB-Key: <your key>`
 
 **Ping**
 
@@ -114,15 +114,21 @@ profits to the matching wallet, falling back to `default`.
 
 Quick test with curl:
 
-    curl -H "X-BCB-Key: YOUR_KEY" https://host.rainsford.net/wp-json/bionic-bots/v1/ping
+    curl -H "X-CTB-Key: YOUR_KEY" https://host.rainsford.net/wp-json/bionic-bots/v1/ping
 
 == Shortcode ==
 
-    [bcb_crypto_dashboard]                (admins only)
-    [bcb_crypto_dashboard public="yes"]   (public, read-only)
-    [bcb_crypto_dashboard trades="10"]
+    [ctb_crypto_dashboard]                (admins only)
+    [ctb_crypto_dashboard public="yes"]   (public, read-only)
+    [ctb_crypto_dashboard trades="10"]
 
 == Changelog ==
+
+= 1.1.4 =
+* Change: internal prefix renamed from bcb_ to ctb_ (tables, options,
+  CSS classes, nonces) with automatic migration on upgrade — existing
+  trades, capital and settings carry over untouched. The API auth
+  header is now X-CTB-Key (new keys use the ctbk_ prefix).
 
 = 1.1.3 =
 * Change: admin URLs renamed — the dashboard now lives at

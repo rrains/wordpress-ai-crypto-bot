@@ -7,17 +7,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class BCB_Install {
+class CTB_Install {
 
 	public static function activate() {
 		self::create_tables();
-		update_option( 'bcb_db_version', BCB_VERSION );
+		update_option( 'ctb_db_version', CTB_VERSION );
 	}
 
 	public static function maybe_upgrade() {
-		if ( get_option( 'bcb_db_version' ) !== BCB_VERSION ) {
+		if ( get_option( 'ctb_db_version' ) !== CTB_VERSION ) {
 			self::create_tables();
-			update_option( 'bcb_db_version', BCB_VERSION );
+			update_option( 'ctb_db_version', CTB_VERSION );
 		}
 	}
 
@@ -26,9 +26,9 @@ class BCB_Install {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 		$charset = $wpdb->get_charset_collate();
-		$trades     = $wpdb->prefix . 'bcb_trades';
-		$wallets    = $wpdb->prefix . 'bcb_wallets';
-		$withdraws  = $wpdb->prefix . 'bcb_withdrawals';
+		$trades     = $wpdb->prefix . 'ctb_trades';
+		$wallets    = $wpdb->prefix . 'ctb_wallets';
+		$withdraws  = $wpdb->prefix . 'ctb_withdrawals';
 
 		$sql = "CREATE TABLE {$trades} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,

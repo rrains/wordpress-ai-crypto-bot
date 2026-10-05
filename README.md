@@ -91,7 +91,7 @@ Requires WordPress 6.0+, PHP 7.4+.
 ## API reference
 
 Base URL: `https://your-site.com/wp-json/bionic-bots/v1`
-Auth header on every request: `X-BCB-Key: <your key>`
+Auth header on every request: `X-CTB-Key: <your key>`
 
 ### Ping
 
@@ -152,15 +152,15 @@ GET /summary
 Quick test:
 
 ```
-curl -H "X-BCB-Key: YOUR_KEY" https://your-site.com/wp-json/bionic-bots/v1/ping
+curl -H "X-CTB-Key: YOUR_KEY" https://your-site.com/wp-json/bionic-bots/v1/ping
 ```
 
 ## Shortcode
 
 ```
-[bcb_crypto_dashboard]                (admins only)
-[bcb_crypto_dashboard public="yes"]   (public, read-only)
-[bcb_crypto_dashboard trades="10"]
+[ctb_crypto_dashboard]                (admins only)
+[ctb_crypto_dashboard public="yes"]   (public, read-only)
+[ctb_crypto_dashboard trades="10"]
 ```
 
 ## Reference bot connector
@@ -171,7 +171,7 @@ A cleaned-up, documented reference implementation is planned for v1.1.
 
 ## Security model
 
-- Bots authenticate with `X-BCB-Key`; keys are stored **hashed** (SHA-256)
+- Bots authenticate with `X-CTB-Key`; keys are stored **hashed** (SHA-256)
 - **Exchange API secrets never touch WordPress** — create exchange keys with
   trading permission only, **withdrawals disabled**
 - Wallet addresses stored here are **public addresses only**

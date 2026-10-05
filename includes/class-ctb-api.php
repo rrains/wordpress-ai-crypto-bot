@@ -3,7 +3,7 @@
  * REST API endpoints for trading bots.
  *
  * Namespace: bionic-bots/v1
- * Auth:      X-BCB-Key header (or ?key= param) matched against hashed API keys.
+ * Auth:      X-CTB-Key header (or ?key= param) matched against hashed API keys.
  *
  * Routes:
  *   GET  /ping                      – connectivity check
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class BCB_Api {
+class CTB_Api {
 
 	const NS = 'bionic-bots/v1';
 
@@ -98,13 +98,13 @@ class BCB_Api {
 	public static function heartbeat( $request ) {
 		$body  = $request->get_json_params();
 		$status = is_array( $body ) ? $body : array();
-		update_option( 'bcb_bot_status', array( 'time' => BCB_Helpers::now(), 'time_utc' => gmdate( 'Y-m-d H:i:s' ), 'status' => $status ), false );
-		if ( class_exists( 'BCB_Watchdog' ) ) {
-			BCB_Watchdog::heartbeat_received();
+		update_option( 'ctb_bot_status', array( 'time' => CTB_Helpers::now(), 'time_utc' => gmdate( 'Y-m-d H:i:s' ), 'status' => $status ), false );
+		if ( class_exists( 'CTB_Watchdog' ) ) {
+			CTB_Watchdog::heartbeat_received();
 		}
-		$command = get_option( 'bcb_bot_command', '' );
+		$command = get_option( 'ctb_bot_command', '' );
 		if ( $command ) {
-			delete_option( 'bcb_bot_command' );
+			delete_option( 'ctb_bot_command' );
 		}
 		return rest_ensure_response(
 			array(
@@ -116,12 +116,12 @@ class BCB_Api {
 
 	/** API-key permission check. */
 	public static function check_key( $request ) {
-		$provided = $request->get_header( 'X-BCB-Key' );
+		$provided = $request->get_header( 'X-CTB-Key' );
 		if ( ! $provided ) {
 			$provided = $request->get_param( 'key' );
 		}
-		if ( ! BCB_Helpers::verify_api_key( $provided ) ) {
-			return new WP_Error( 'bcb_forbidden', 'Invalid or missing API key.', array( 'status' => 403 ) );
+		if ( ! CTB_Helpers::verify_api_key( $provided ) ) {
+			return new WP_Error( 'ctb_forbidden', 'Invalid or missing API key.', array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -131,7 +131,7 @@ class BCB_Api {
 			array(
 				'ok'      => true,
 				'service' => 'bionic-crypto-bots',
-				'version' => BCB_VERSION,
+				'version' => CTB_VERSION,
 				'time'    => gmdate( 'c' ),
 			)
 		);
@@ -142,7 +142,7 @@ class BCB_Api {
 	 */
 	public static function post_trades( $request ) {
 		global $wpdb;
-		$t     = BCB_Helpers::tables()['trades'];
+		$t     = CTB_Helpers::tables()['trades'];
 		$body  = $request->get_json_params();
 		$params = is_array( $body ) && ! empty( $body ) ? $body : $request->get_body_params();
 
@@ -154,7 +154,7 @@ class BCB_Api {
 		}
 
 		if ( empty( $items ) ) {
-			return new WP_Error( 'bcb_bad_request', 'No trade data supplied.', array( 'status' => 400 ) );
+			return new WP_Error( 'ctb_bad_request', 'No trade data supplied.', array( 'status' => 400 ) );
 		}
 
 		$inserted = 0;
@@ -212,10 +212,10 @@ class BCB_Api {
 				'fee'        => $fee,
 				'pnl'        => $pnl,
 				'currency'   => substr( $currency, 0, 16 ),
-				'opened_at'  => BCB_Helpers::parse_dt( self::pick( $item, array( 'opened_at', 'open_time', 'entry_time' ) ) ),
-				'closed_at'  => BCB_Helpers::parse_dt( self::pick( $item, array( 'closed_at', 'close_time', 'exit_time' ) ) ),
+				'opened_at'  => CTB_Helpers::parse_dt( self::pick( $item, array( 'opened_at', 'open_time', 'entry_time' ) ) ),
+				'closed_at'  => CTB_Helpers::parse_dt( self::pick( $item, array( 'closed_at', 'close_time', 'exit_time' ) ) ),
 				'meta'       => wp_json_encode( isset( $item['meta'] ) ? $item['meta'] : new stdClass() ),
-				'created_at' => BCB_Helpers::now(),
+				'created_at' => CTB_Helpers::now(),
 			);
 
 			$existed = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$t} WHERE uuid = %s", $uuid ) );
@@ -244,7 +244,7 @@ class BCB_Api {
 		}
 
 		if ( ! empty( $alert_lines ) ) {
-			BCB_Helpers::send_alert(
+			CTB_Helpers::send_alert(
 				sprintf( '[Crypto Bots] %d new trade%s reported', count( $alert_lines ), 1 === count( $alert_lines ) ? '' : 's' ),
 				"New trade data received:\n\n" . implode( "\n", $alert_lines ) . "\n\n— plant-medicine.shop"
 			);
@@ -286,14 +286,14 @@ class BCB_Api {
 		$limit    = max( 1, min( 200, (int) $request->get_param( 'limit' ) ?: 20 ) );
 		$exchange = (string) $request->get_param( 'exchange' );
 		$bot      = (string) $request->get_param( 'bot' );
-		$trades   = BCB_Stats::latest_trades( $limit, $exchange, $bot );
+		$trades   = CTB_Stats::latest_trades( $limit, $exchange, $bot );
 		return rest_ensure_response( array( 'trades' => $trades, 'count' => count( $trades ) ) );
 	}
 
 	/** Bots call this to learn where profits should be sent. */
 	public static function get_wallets( $request ) {
 		global $wpdb;
-		$t      = BCB_Helpers::tables()['wallets'];
+		$t      = CTB_Helpers::tables()['wallets'];
 		$exchange = strtolower( trim( (string) $request->get_param( 'exchange' ) ) );
 		$asset    = strtoupper( trim( (string) $request->get_param( 'asset' ) ) );
 
@@ -334,13 +334,13 @@ class BCB_Api {
 	/** Bot reports a profit transfer (withdrawal) it executed. */
 	public static function post_withdrawal( $request ) {
 		global $wpdb;
-		$t     = BCB_Helpers::tables()['withdrawals'];
+		$t     = CTB_Helpers::tables()['withdrawals'];
 		$body  = $request->get_json_params();
 		$params = is_array( $body ) && ! empty( $body ) ? $body : $request->get_body_params();
 
 		$amount = (float) ( $params['amount'] ?? 0 );
 		if ( $amount <= 0 ) {
-			return new WP_Error( 'bcb_bad_request', 'amount must be > 0.', array( 'status' => 400 ) );
+			return new WP_Error( 'ctb_bad_request', 'amount must be > 0.', array( 'status' => 400 ) );
 		}
 
 		$status = strtolower( (string) ( $params['status'] ?? 'pending' ) );
@@ -358,12 +358,12 @@ class BCB_Api {
 				'txid'          => substr( (string) ( $params['txid'] ?? '' ), 0, 191 ),
 				'status'        => $status,
 				'note'          => substr( (string) ( $params['note'] ?? '' ), 0, 500 ),
-				'created_at'    => BCB_Helpers::now(),
+				'created_at'    => CTB_Helpers::now(),
 			),
 			array( '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%s' )
 		);
 
-		BCB_Helpers::send_alert(
+		CTB_Helpers::send_alert(
 			'[Crypto Bots] Profit withdrawal reported',
 			sprintf(
 				"A profit transfer was reported:\n\nExchange: %s\nAsset: %s\nAmount: %s\nDestination: %s\nTxID: %s\nStatus: %s\n\n— plant-medicine.shop",
@@ -387,7 +387,7 @@ class BCB_Api {
 
 	/** JSON summary for external dashboards / integrations. */
 	public static function get_summary() {
-		$overview = BCB_Stats::overview();
+		$overview = CTB_Stats::overview();
 		return rest_ensure_response(
 			array(
 				'totals'  => $overview['totals'],

@@ -9,9 +9,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class BCB_Watchdog {
+class CTB_Watchdog {
 
-	const HOOK        = 'bcb_heartbeat_watchdog';
+	const HOOK        = 'ctb_heartbeat_watchdog';
 	const STALE_AFTER = 1800;       // 30 minutes without a heartbeat = stale
 	const REPEAT_AFTER = 21600;     // re-alert at most every 6 hours
 
@@ -19,12 +19,12 @@ class BCB_Watchdog {
 		add_filter( 'cron_schedules', array( __CLASS__, 'schedules' ) );
 		add_action( self::HOOK, array( __CLASS__, 'check' ) );
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
-			wp_schedule_event( time() + 120, 'bcb_fifteen_minutes', self::HOOK );
+			wp_schedule_event( time() + 120, 'ctb_fifteen_minutes', self::HOOK );
 		}
 	}
 
 	public static function schedules( $schedules ) {
-		$schedules['bcb_fifteen_minutes'] = array(
+		$schedules['ctb_fifteen_minutes'] = array(
 			'interval' => 900,
 			'display'  => __( 'Every 15 minutes (Crypto Bots)' ),
 		);
@@ -37,7 +37,7 @@ class BCB_Watchdog {
 
 	/** Age of the last stored heartbeat in seconds, or null if none ever stored. */
 	private static function age_seconds() {
-		$status = get_option( 'bcb_bot_status' );
+		$status = get_option( 'ctb_bot_status' );
 		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
 			return null;
 		}
@@ -57,17 +57,17 @@ class BCB_Watchdog {
 			return;
 		}
 
-		$last = (int) get_option( 'bcb_stale_alerted', 0 );
+		$last = (int) get_option( 'ctb_stale_alerted', 0 );
 		if ( $last && ( time() - $last ) < self::REPEAT_AFTER ) {
 			return; // already alerted recently — don't spam
 		}
-		update_option( 'bcb_stale_alerted', time(), false );
+		update_option( 'ctb_stale_alerted', time(), false );
 
-		$status = get_option( 'bcb_bot_status' );
+		$status = get_option( 'ctb_bot_status' );
 		$mode   = isset( $status['status']['mode'] ) ? $status['status']['mode'] : 'unknown';
 		$mins   = (int) round( $age / 60 );
 
-		BCB_Helpers::send_alert(
+		CTB_Helpers::send_alert(
 			sprintf( '[Crypto Bots] ⚠️ Bot heartbeat STALE (%d min)', $mins ),
 			"The bot has not checked in for {$mins} minutes.\n\n"
 			. "Last heartbeat: {$status['time']} (mode: {$mode})\n\n"
@@ -82,11 +82,11 @@ class BCB_Watchdog {
 
 	/** Called by the API whenever a fresh heartbeat is stored. */
 	public static function heartbeat_received() {
-		if ( ! get_option( 'bcb_stale_alerted' ) ) {
+		if ( ! get_option( 'ctb_stale_alerted' ) ) {
 			return;
 		}
-		delete_option( 'bcb_stale_alerted' );
-		BCB_Helpers::send_alert(
+		delete_option( 'ctb_stale_alerted' );
+		CTB_Helpers::send_alert(
 			'[Crypto Bots] ✅ Bot heartbeat RECOVERED',
 			"The bot is checking in again — reporting has resumed.\n\n— plant-medicine.shop"
 		);
