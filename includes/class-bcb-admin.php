@@ -9,36 +9,39 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class BCB_Admin {
 
+	/** Marker for the clean-URL block written to .htaccess. */
+	const HTACCESS_MARKER = 'Crypto Trading Bot';
+
 	public static function register_menu() {
 		add_menu_page(
 			__( 'Crypto Bots', 'bionic-crypto-bots' ),
 			__( 'Crypto Bots', 'bionic-crypto-bots' ),
 			'manage_options',
-			'bcb',
+			'crypto-trading-bot',
 			array( __CLASS__, 'render_dashboard' ),
 			'dashicons-chart-area',
 			58
 		);
 		add_submenu_page(
-			'bcb',
+			'crypto-trading-bot',
 			__( 'Dashboard', 'bionic-crypto-bots' ),
 			__( 'Dashboard', 'bionic-crypto-bots' ),
 			'manage_options',
-			'bcb',
+			'crypto-trading-bot',
 			array( __CLASS__, 'render_dashboard' )
 		);
 		add_submenu_page(
-			'bcb',
+			'crypto-trading-bot',
 			__( 'Settings', 'bionic-crypto-bots' ),
 			__( 'Settings', 'bionic-crypto-bots' ),
 			'manage_options',
-			'bcb-settings',
+			'crypto-trading-bot-settings',
 			array( __CLASS__, 'render_settings' )
 		);
 	}
 
 	public static function enqueue_assets( $hook ) {
-		if ( false === strpos( $hook, 'bcb' ) ) {
+		if ( false === strpos( $hook, 'crypto-trading-bot' ) ) {
 			return;
 		}
 		wp_enqueue_style( 'bcb-admin', BCB_URL . 'assets/css/bcb-admin.css', array(), BCB_VERSION );
@@ -74,7 +77,7 @@ class BCB_Admin {
 		} elseif ( isset( $_POST['bcb_bot_resume'] ) ) {
 			update_option( 'bcb_bot_command', 'resume', false );
 		}
-		wp_safe_redirect( admin_url( 'admin.php?page=bcb' ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot' ) );
 		exit;
 	}
 
@@ -94,7 +97,7 @@ class BCB_Admin {
 			update_option( 'bcb_api_keys', $keys, false );
 			// Show the plaintext exactly once, right after generating.
 			update_option( 'bcb_new_key_plain', $plain, false );
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=key-created' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=key-created' ) );
 			exit;
 		}
 
@@ -105,7 +108,7 @@ class BCB_Admin {
 				unset( $keys[ $index ] );
 				update_option( 'bcb_api_keys', array_values( $keys ), false );
 			}
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=key-revoked' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=key-revoked' ) );
 			exit;
 		}
 	}
@@ -118,7 +121,7 @@ class BCB_Admin {
 		if ( isset( $_POST['bcb_add_wallet'] ) ) {
 			$address = sanitize_text_field( wp_unslash( $_POST['bcb_wallet_address'] ?? '' ) );
 			if ( '' === $address ) {
-				wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-error' ) );
+				wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=wallet-error' ) );
 				exit;
 			}
 
@@ -142,7 +145,7 @@ class BCB_Admin {
 				array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
 			);
 
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-added' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=wallet-added' ) );
 			exit;
 		}
 
@@ -151,7 +154,7 @@ class BCB_Admin {
 			if ( $id > 0 ) {
 				$wpdb->delete( $t, array( 'id' => $id ), array( '%d' ) );
 			}
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-deleted' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=wallet-deleted' ) );
 			exit;
 		}
 
@@ -161,7 +164,7 @@ class BCB_Admin {
 			if ( $id > 0 ) {
 				$wpdb->update( $t, array( 'active' => $active ? 0 : 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
 			}
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-updated' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=wallet-updated' ) );
 			exit;
 		}
 
@@ -171,7 +174,7 @@ class BCB_Admin {
 				$wpdb->update( $t, array( 'is_default' => 0 ), array( 'is_default' => 1 ) );
 				$wpdb->update( $t, array( 'is_default' => 1 ), array( 'id' => $id ), array( '%d' ), array( '%d' ) );
 			}
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=wallet-updated' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=wallet-updated' ) );
 			exit;
 		}
 	}
@@ -185,16 +188,28 @@ class BCB_Admin {
 			update_option( 'bcb_alert_email', is_email( $email ) ? $email : '' );
 		}
 
+		if ( isset( $_POST['bcb_enable_clean_urls'] ) ) {
+			$done = self::enable_clean_urls();
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=' . ( $done ? 'clean-enabled' : 'clean-failed' ) ) );
+			exit;
+		}
+
+		if ( isset( $_POST['bcb_disable_clean_urls'] ) ) {
+			self::disable_clean_urls();
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=clean-disabled' ) );
+			exit;
+		}
+
 		if ( isset( $_POST['bcb_test_alert'] ) ) {
 			$sent = BCB_Helpers::send_alert(
 				'[Crypto Bots] Test alert',
 				"This is a test alert from your Crypto Bots plugin on plant-medicine.shop.\n\nIf you received this, trade and withdrawal alerts will arrive at this address."
 			);
-			wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=' . ( $sent ? 'alert-sent' : 'alert-failed' ) ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=' . ( $sent ? 'alert-sent' : 'alert-failed' ) ) );
 			exit;
 		}
 
-		wp_safe_redirect( admin_url( 'admin.php?page=bcb-settings&notice=options-saved' ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=options-saved' ) );
 		exit;
 	}
 
@@ -322,7 +337,7 @@ class BCB_Admin {
 
 			<div class="bcb-section-title">🧾 Latest 20 trades</div>
 			<form method="get" class="bcb-filters">
-				<input type="hidden" name="page" value="bcb" />
+				<input type="hidden" name="page" value="crypto-trading-bot" />
 				<select name="exchange">
 					<option value="">All exchanges</option>
 					<?php foreach ( $exchanges as $ex ) : ?>
@@ -422,19 +437,23 @@ class BCB_Admin {
 		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
 			$inner = '<span class="bcb-card-sub">No heartbeat received yet. The bot checks in on every tick (every 15 min).</span>';
 		} else {
-			$ts    = strtotime( $status['time'] );
+			// Freshness math uses the UTC field; the displayed time is site-local.
+			$ts    = strtotime( $status['time_utc'] . ' UTC' );
 			$age   = time() - $ts;
 			$fresh = $age < 20 * MINUTE_IN_SECONDS;
 			$s     = isset( $status['status'] ) && is_array( $status['status'] ) ? $status['status'] : array();
 			$mode  = isset( $s['mode'] ) ? $s['mode'] : 'unknown';
 			$dot   = ! $fresh ? '🟠 stale' : ( 'paused' === $mode ? '🔴 paused' : '🟢 running' );
 
-			$lines  = '<span class="bcb-card-sub">Last check-in: ' . esc_html( human_time_diff( $ts ) ) . ' ago (' . esc_html( $status['time'] ) . ')</span>';
+			$lines  = '<span class="bcb-card-sub">Last check-in: ' . esc_html( human_time_diff( $ts ) ) . ' ago (' . esc_html( $status['time'] ) . ' site time)</span>';
 			$lines .= '<span class="bcb-card-sub">Status: <strong>' . esc_html( $dot ) . '</strong>';
 			if ( isset( $s['price'] ) ) {
 				$lines .= ' · BTC/GBP last: ' . esc_html( BCB_Helpers::format_money( $s['price'], 'GBP' ) );
 			}
 			$lines .= '</span>';
+			if ( isset( $s['strategy'] ) && '' !== $s['strategy'] ) {
+				$lines .= '<span class="bcb-card-sub">Trading strategy: <strong>' . esc_html( $s['strategy'] ) . '</strong> (set by the bot — read-only in the free edition)</span>';
+			}
 
 			if ( isset( $s['position'] ) && is_array( $s['position'] ) && isset( $s['position']['qty'] ) ) {
 				$pos = $s['position'];
@@ -504,6 +523,49 @@ class BCB_Admin {
 	/* ------------------------------------------------------------------ */
 	/* Settings                                                            */
 	/* ------------------------------------------------------------------ */
+
+	/** ---- Clean admin URLs (.htaccess) ---- */
+
+	private static function clean_url_slugs() {
+		return array( 'crypto-trading-bot', 'crypto-trading-bot-settings' );
+	}
+
+	private static function htaccess_file() {
+		if ( ! function_exists( 'get_home_path' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		return get_home_path() . '.htaccess';
+	}
+
+	public static function clean_urls_enabled() {
+		$f = self::htaccess_file();
+		if ( ! file_exists( $f ) ) return false;
+		$c = (string) file_get_contents( $f );
+		return strpos( $c, '# BEGIN ' . self::HTACCESS_MARKER ) !== false;
+	}
+
+	private static function clean_url_rules() {
+		$rules = array( '<IfModule mod_rewrite.c>', 'RewriteEngine On', 'RewriteCond %{REQUEST_FILENAME} !-f' );
+		foreach ( self::clean_url_slugs() as $slug ) {
+			$rules[] = 'RewriteRule ^wp-admin/' . $slug . '/?$ wp-admin/admin.php?page=' . $slug . ' [L,QSA]';
+		}
+		$rules[] = '</IfModule>';
+		return $rules;
+	}
+
+	public static function enable_clean_urls() {
+		if ( ! function_exists( 'insert_with_markers' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/misc.php';
+		}
+		return insert_with_markers( self::htaccess_file(), self::HTACCESS_MARKER, self::clean_url_rules() );
+	}
+
+	public static function disable_clean_urls() {
+		if ( ! function_exists( 'insert_with_markers' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/misc.php';
+		}
+		return insert_with_markers( self::htaccess_file(), self::HTACCESS_MARKER, array() );
+	}
 
 	public static function render_settings() {
 		$keys       = BCB_Helpers::get_api_keys();
@@ -650,7 +712,19 @@ class BCB_Admin {
 				</p>
 			</form>
 
-			<div class="bcb-section-title">🧹 Data</div>
+			<div class="bcb-section-title">🔗 Clean admin URLs</div>
+		<p>Serves the dashboard at <code>/wp-admin/crypto-trading-bot</code> instead of <code>admin.php?page=…</code>. Writes a marked block into your site's <code>.htaccess</code> (Apache/LiteSpeed hosting).</p>
+		<form method="post">
+			<input type="hidden" name="bcb_page" value="options" />
+			<?php wp_nonce_field( 'bcb_options' ); ?>
+			<p>
+				<button class="button button-primary" name="bcb_enable_clean_urls" value="1">Enable clean URLs</button>
+				<button class="button" name="bcb_disable_clean_urls" value="1">Disable</button>
+				<span class="bcb-card-sub">Current state: <strong><?php echo self::clean_urls_enabled() ? 'enabled' : 'disabled'; ?></strong></span>
+			</p>
+		</form>
+
+		<div class="bcb-section-title">🧹 Data</div>
 			<form method="post">
 				<input type="hidden" name="bcb_page" value="options" />
 				<?php wp_nonce_field( 'bcb_options' ); ?>

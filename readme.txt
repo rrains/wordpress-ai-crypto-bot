@@ -124,6 +124,18 @@ Quick test with curl:
 
 == Changelog ==
 
+= 1.1.3 =
+* Change: admin URLs renamed — the dashboard now lives at
+  /wp-admin/admin.php?page=crypto-trading-bot (settings page follows
+  the same pattern).
+* New: optional clean admin URLs — the plugin can write its own
+  .htaccess block so /wp-admin/crypto-trading-bot serves the dashboard
+  (Settings → Clean admin URLs; nginx hosting uses the provided snippet).
+* Fix: heartbeat staleness math after a server timezone change
+  (heartbeats store an explicit UTC timestamp).
+* New: the Bot Control card shows the trading strategy the bot runs
+  (read-only in the free edition).
+
 = 1.1.0 =
 * New: heartbeat watchdog — email alert when a bot stops checking in
   (catches maintenance-mode/coming-soon outages within ~45 minutes),

@@ -41,7 +41,8 @@ class BCB_Watchdog {
 		if ( ! is_array( $status ) || empty( $status['time'] ) ) {
 			return null;
 		}
-		$ts = strtotime( $status['time'] );
+		// Freshness math uses the UTC field; the display 'time' is site-local.
+		$ts = strtotime( $status['time_utc'] . ' UTC' );
 		return $ts ? ( time() - $ts ) : null;
 	}
 
