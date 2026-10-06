@@ -2,7 +2,7 @@
 /**
  * REST API endpoints for trading bots.
  *
- * Namespace: bionic-bots/v1
+ * Namespace: wpct-bots/v1
  * Auth:      X-CTB-Key header (or ?key= param) matched against hashed API keys.
  *
  * Routes:
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class CTB_Api {
 
-	const NS = 'bionic-bots/v1';
+	const NS = 'wpct-bots/v1';
 
 	public static function register_routes() {
 

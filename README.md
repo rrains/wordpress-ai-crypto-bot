@@ -90,7 +90,7 @@ Requires WordPress 6.0+, PHP 7.4+.
 
 ## API reference
 
-Base URL: `https://your-site.com/wp-json/bionic-bots/v1`
+Base URL: `https://your-site.com/wp-json/wpct-bots/v1`
 Auth header on every request: `X-CTB-Key: <your key>`
 
 ### Ping
@@ -152,7 +152,7 @@ GET /summary
 Quick test:
 
 ```
-curl -H "X-CTB-Key: YOUR_KEY" https://your-site.com/wp-json/bionic-bots/v1/ping
+curl -H "X-CTB-Key: YOUR_KEY" https://your-site.com/wp-json/wpct-bots/v1/ping
 ```
 
 ## Shortcode

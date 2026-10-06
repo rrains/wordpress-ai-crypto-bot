@@ -369,7 +369,7 @@ class CTB_Admin {
 				</thead>
 				<tbody>
 					<?php if ( empty( $trades ) ) : ?>
-						<tr><td colspan="10">No trades reported yet. Point your bots at the <code>bionic-bots/v1</code> API (see Settings → Crypto Bots).</td></tr>
+						<tr><td colspan="10">No trades reported yet. Point your bots at the <code>wpct-bots/v1</code> API (see Settings → Crypto Bots).</td></tr>
 					<?php else : ?>
 						<?php foreach ( $trades as $trade ) : ?>
 							<tr>
@@ -571,7 +571,7 @@ class CTB_Admin {
 		$keys       = CTB_Helpers::get_api_keys();
 		$new_key    = get_option( 'ctb_new_key_plain', '' );
 		$wallets    = self::get_wallets();
-		$rest_base  = rest_url( 'bionic-bots/v1' );
+		$rest_base  = rest_url( 'wpct-bots/v1' );
 		$notice     = isset( $_GET['notice'] ) ? sanitize_key( wp_unslash( $_GET['notice'] ) ) : '';
 		?>
 		<div class="wrap ctb-wrap">

@@ -49,7 +49,7 @@ Bots authenticate to the plugin with a generated API key sent as an
    **Files** → `httpdocs/wp-content/plugins/`, then activate in WP admin).
 4. Verify pretty permalinks so the REST namespace resolves:
    WP admin → Settings → Permalinks → any non-plain option. Then check
-   `https://host.rainsford.net/wp-json/bionic-bots/v1/ping` in a browser —
+   `https://host.rainsford.net/wp-json/wpct-bots/v1/ping` in a browser —
    it should answer `403 {"code":"ctb_forbidden"}` without a key (proving
    the route is live) and `200 {"ok":true,...}` with the key header.
 5. If you run bots on the same VPS, no extra firewall work is needed (they
@@ -59,11 +59,11 @@ Bots authenticate to the plugin with a generated API key sent as an
    `wp-content/uploads`, keep `wp-config.php` out of git, and consider
    Plesk Fail2ban on `xmlrpc.php` and `wp-login.php`.
 7. If WordPress lives in a subdirectory (e.g. `httpdocs/blog`), the API base
-   becomes `https://host.rainsford.net/blog/wp-json/bionic-bots/v1`.
+   becomes `https://host.rainsford.net/blog/wp-json/wpct-bots/v1`.
 
 == API reference ==
 
-Base URL: `https://host.rainsford.net/wp-json/bionic-bots/v1`
+Base URL: `https://host.rainsford.net/wp-json/wpct-bots/v1`
 (on your Plesk VPS; adjust if WordPress is in a subdirectory)
 Auth header on every request: `X-CTB-Key: <your key>`
 
@@ -114,7 +114,7 @@ profits to the matching wallet, falling back to `default`.
 
 Quick test with curl:
 
-    curl -H "X-CTB-Key: YOUR_KEY" https://host.rainsford.net/wp-json/bionic-bots/v1/ping
+    curl -H "X-CTB-Key: YOUR_KEY" https://host.rainsford.net/wp-json/wpct-bots/v1/ping
 
 == Shortcode ==
 
@@ -123,6 +123,11 @@ Quick test with curl:
     [ctb_crypto_dashboard trades="10"]
 
 == Changelog ==
+
+= 1.1.4 =
+* Change: REST API namespace renamed from bionic-bots/v1 to
+  wpct-bots/v1 (matches the new product name). Bots must update
+  their endpoint URLs.
 
 = 1.1.4 =
 * Change: internal prefix renamed from bcb_ to ctb_ (tables, options,
