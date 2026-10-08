@@ -4,7 +4,7 @@ Tags: crypto, trading, bots, dashboard, pnl
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
 Dashboard and REST API interface for your crypto trading bots: latest trades, P&L stats, best performers, and profit wallet destinations.

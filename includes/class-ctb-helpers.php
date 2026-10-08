@@ -82,13 +82,61 @@ class CTB_Helpers {
 		return is_email( $to ) ? $to : '';
 	}
 
-	/** Send an alert email if one is configured. Returns true/false/null (null = no recipient). */
-	public static function send_alert( $subject, $body ) {
-		$to = self::alert_email();
-		if ( '' === $to ) {
+	/** Configured Telegram credentials (null = alerts off). */
+	public static function telegram_config() {
+		$token   = trim( (string) get_option( 'ctb_telegram_bot_token', '' ) );
+		$chat_id = trim( (string) get_option( 'ctb_telegram_chat_id', '' ) );
+		if ( '' === $token || '' === $chat_id ) {
 			return null;
 		}
-		return wp_mail( $to, $subject, $body );
+		return array( 'token' => $token, 'chat_id' => $chat_id );
+	}
+
+	/** Send a Telegram message. Returns true/false. */
+	public static function send_telegram( $text ) {
+		$tg = self::telegram_config();
+		if ( null === $tg ) {
+			return false;
+		}
+		$response = wp_remote_post(
+			'https://api.telegram.org/bot' . $tg['token'] . '/sendMessage',
+			array(
+				'timeout' => 10,
+				'body'    => array( 'chat_id' => $tg['chat_id'], 'text' => $text ),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return false;
+		}
+		return 200 === (int) wp_remote_retrieve_response_code( $response );
+	}
+
+	/** Which delivery channels the admin chose (option: both | email | telegram). */
+	public static function notify_channels() {
+		$choice = get_option( 'ctb_notify_channels', 'both' );
+		if ( ! in_array( $choice, array( 'both', 'email', 'telegram' ), true ) ) {
+			$choice = 'both';
+		}
+		return array(
+			'email'    => in_array( $choice, array( 'both', 'email' ), true ),
+			'telegram' => in_array( $choice, array( 'both', 'telegram' ), true ),
+			'choice'   => $choice,
+		);
+	}
+
+	/** Send an alert through every enabled channel. Returns true/false/null (null = no channel). */
+	public static function send_alert( $subject, $body ) {
+		$sent     = null;
+		$channels = self::notify_channels();
+		$to       = self::alert_email();
+		if ( $channels['email'] && '' !== $to ) {
+			$sent = (bool) wp_mail( $to, $subject, $body );
+		}
+		if ( $channels['telegram'] && null !== self::telegram_config() ) {
+			$ok   = self::send_telegram( 🤖 . $subject . "\n\n" . $body );
+			$sent = ( null === $sent ) ? $ok : ( $sent || $ok );
+		}
+		return $sent;
 	}
 
 	/** Parse a bot-supplied datetime; null when empty/invalid. Accepts ISO-8601 or MySQL. */

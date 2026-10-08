@@ -203,9 +203,55 @@ class CTB_Admin {
 		if ( isset( $_POST['ctb_test_alert'] ) ) {
 			$sent = CTB_Helpers::send_alert(
 				'[Crypto Bots] Test alert',
-				"This is a test alert from your Crypto Bots plugin on plant-medicine.shop.\n\nIf you received this, trade and withdrawal alerts will arrive at this address."
+				"This is a test alert from your Crypto Bots plugin on " . get_bloginfo( 'name' ) . "\n\nIf you received this, trade and withdrawal alerts will arrive at this address."
 			);
 			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=' . ( $sent ? 'alert-sent' : 'alert-failed' ) ) );
+			exit;
+		}
+
+		if ( isset( $_POST['ctb_save_telegram'] ) ) {
+			$token   = trim( (string) ( $_POST['ctb_telegram_bot_token'] ?? '' ) );
+			$chat_id = trim( (string) ( $_POST['ctb_telegram_chat_id'] ?? '' ) );
+			update_option( 'ctb_telegram_bot_token', $token );
+			update_option( 'ctb_telegram_chat_id', $chat_id );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=tg-saved' ) );
+			exit;
+		}
+
+		if ( isset( $_POST['ctb_test_telegram'] ) ) {
+			$token   = trim( (string) ( $_POST['ctb_telegram_bot_token'] ?? get_option( 'ctb_telegram_bot_token', '' ) ) );
+			$chat_id = trim( (string) ( $_POST['ctb_telegram_chat_id'] ?? '' ) );
+			if ( '' === $token ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=tg-error' ) );
+				exit;
+			}
+			if ( '' === $chat_id ) {
+				$upd  = wp_remote_get( 'https://api.telegram.org/bot' . $token . '/getUpdates', array( 'timeout' => 10 ) );
+				$body = json_decode( wp_remote_retrieve_body( $upd ), true );
+				if ( ! empty( $body['result'] ) ) {
+					foreach ( array_reverse( $body['result'] ) as $up ) {
+						if ( isset( $up['message']['chat']['id'] ) ) {
+							$chat_id = (string) $up['message']['chat']['id'];
+							break;
+						}
+					}
+				}
+			}
+			if ( '' === $chat_id ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=tg-chat' ) );
+				exit;
+			}
+			update_option( 'ctb_telegram_bot_token', $token );
+			update_option( 'ctb_telegram_chat_id', $chat_id );
+			$ok = CTB_Helpers::send_telegram( '✅ Crypto Bots: Telegram alerts connected on ' . get_bloginfo( 'name' ) . '.' );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=' . ( $ok ? 'tg-ok' : 'tg-error' ) ) );
+			exit;
+		}
+
+		if ( isset( $_POST['ctb_save_channels'] ) ) {
+			$choice = sanitize_text_field( wp_unslash( $_POST['ctb_notify_channels'] ?? 'both' ) );
+			update_option( 'ctb_notify_channels', in_array( $choice, array( 'both', 'email', 'telegram' ), true ) ? $choice : 'both' );
+			wp_safe_redirect( admin_url( 'admin.php?page=crypto-trading-bot-settings&notice=channels-saved' ) );
 			exit;
 		}
 
@@ -588,6 +634,11 @@ class CTB_Admin {
 				'options-saved'  => array( 'success', 'Options saved.' ),
 				'alert-sent'     => array( 'success', 'Test alert sent — check the inbox (and the spam folder).' ),
 				'alert-failed'   => array( 'error', 'Test alert FAILED to send. Check the alert email address, or the site\'s mail configuration.' ),
+				'tg-saved'       => array( 'success', 'Telegram settings saved.' ),
+				'tg-ok'          => array( 'success', 'Test message sent — check your Telegram. Alerts are now live.' ),
+				'tg-chat'        => array( 'error', 'No chat found yet — send your bot any message first, then press Send test again.' ),
+				'tg-error'       => array( 'error', 'Telegram test failed — check the bot token.' ),
+				'channels-saved' => array( 'success', 'Delivery channels saved.' ),
 			);
 			if ( $notice && isset( $notices[ $notice ] ) ) {
 				printf(
@@ -710,6 +761,32 @@ class CTB_Admin {
 					<button class="button button-primary" name="ctb_save_alert" value="1">Save alert address</button>
 					<button class="button" name="ctb_test_alert" value="1">Send test email</button>
 				</p>
+			</form>
+
+			<div class="ctb-section-title">📱 Telegram alerts</div>
+			<form method="post">
+				<input type="hidden" name="ctb_page" value="options" />
+				<?php wp_nonce_field( 'ctb_options' ); ?>
+				<p>Trade and withdrawal alerts in Telegram, alongside (or instead of) email. Setup: 1) message @BotFather, send <code>/newbot</code> and copy the token. 2) send any message to your new bot. 3) paste the token and press <strong>Send test message</strong> — the chat ID fills in automatically.</p>
+				<p><label>Bot token<br /><input type="password" name="ctb_telegram_bot_token" value="<?php echo esc_attr( get_option( 'ctb_telegram_bot_token', '' ) ); ?>" class="ctb-wide" autocomplete="off" placeholder="123456:AAExxxx&#8230; &mdash; the token @BotFather gave you" /></label></p>
+				<p><label>Chat ID (numeric &mdash; leave empty, auto-detected)<br /><input type="text" name="ctb_telegram_chat_id" value="<?php echo esc_attr( get_option( 'ctb_telegram_chat_id', '' ) ); ?>" class="ctb-wide" placeholder="e.g. 123456789 &mdash; auto-filled by Send test" /></label></p>
+				<p>
+					<button class="button button-primary" name="ctb_save_telegram" value="1">Save Telegram settings</button>
+					<button class="button" name="ctb_test_telegram" value="1">Send test message</button>
+				</p>
+			</form>
+
+			<div class="ctb-section-title">🔔 Delivery channels</div>
+			<form method="post">
+				<input type="hidden" name="ctb_page" value="options" />
+				<?php wp_nonce_field( 'ctb_options' ); ?>
+				<p>Which channels receive alerts (trades, withdrawals). Telegram and email settings above must be filled in for a channel to work.</p>
+				<p><select name="ctb_notify_channels">
+					<?php $current_channels = get_option( 'ctb_notify_channels', 'both' ); foreach ( array( 'both' => 'Email + Telegram', 'telegram' => 'Telegram only', 'email' => 'Email only' ) as $val => $label ) : ?>
+						<option value="<?php echo esc_attr( $val ); ?>" <?php selected( $current_channels, $val ); ?>><?php echo esc_html( $label ); ?></option>
+					<?php endforeach; ?>
+				</select></p>
+				<p><button class="button button-primary" name="ctb_save_channels" value="1">Save delivery channels</button></p>
 			</form>
 
 			<div class="ctb-section-title">🔗 Clean admin URLs</div>
